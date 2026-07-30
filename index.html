@@ -188,18 +188,22 @@
   <!-- Toast — a margin note that slides in from the left -->
   <div id="toast" class="margin-note" role="status" aria-live="polite" hidden></div>
 
+  <!-- Local config (gitignored). Must be loaded as a classic <script> BEFORE
+       the module below, so window.NOTEHUB_CONFIG is defined when the module runs. -->
+  <script src="./firebase-config.js"></script>
+
   <script type="module">
     // -------------------------------------------------------------------
-    // Firebase config (provided by user)
+    // Firebase config (loaded from gitignored firebase-config.js)
     // -------------------------------------------------------------------
-    const firebaseConfig = {
-      apiKey: "YOUR_FIREBASE_API_KEY",
-      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    const NOTEHUB_CONFIG = window.NOTEHUB_CONFIG || {};
+    const firebaseConfig = NOTEHUB_CONFIG.firebase || {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
       projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT_ID.firebasestorage.app",
-      messagingSenderId: "1014814039666",
-      appId: "1:1014814039666:web:626fbc97189ba1bbbcaceb",
-      measurementId: "G-YZ11EVKNQ0"
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
     };
 
     // -------------------------------------------------------------------

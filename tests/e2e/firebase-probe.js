@@ -6,14 +6,19 @@ import { dirname } from 'node:path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /**
- * Pulls the firebaseConfig out of index.html by simple replacement — good enough
- * for a test precheck (no need for a full HTML parser).
+ * Pulls the Firebase apiKey out of the gitignored firebase-config.js by
+ * simple regex — good enough for a test precheck (no need to eval the file).
+ * firebase-config.js assigns window.NOTEHUB_CONFIG = { firebase: { apiKey: "..." } }
+ * but since it's a classic <script> (not a module), we just regex the source.
  */
 export function readFirebaseConfig() {
-  const indexPath = path.join(__dirname, '..', '..', 'index.html');
-  const html = fs.readFileSync(indexPath, 'utf8');
-  const apiKeyMatch = html.match(/apiKey:\s*"([^"]+)"/);
-  return { apiKey: apiKeyMatch?.[1] || null, html };
+  const configPath = path.join(__dirname, '..', '..', 'firebase-config.js');
+  if (!fs.existsSync(configPath)) {
+    return { apiKey: null, html: null };
+  }
+  const src = fs.readFileSync(configPath, 'utf8');
+  const apiKeyMatch = src.match(/apiKey:\s*"([^"]+)"/);
+  return { apiKey: apiKeyMatch?.[1] || null, html: src };
 }
 
 /**
@@ -25,7 +30,7 @@ export function readFirebaseConfig() {
 export async function probeEmailPasswordProvider() {
   const { apiKey } = readFirebaseConfig();
   if (!apiKey || apiKey.startsWith('YOUR_')) {
-    return { ok: false, reason: 'Firebase apiKey missing in index.html' };
+    return { ok: false, reason: 'Firebase apiKey missing in firebase-config.js (copy firebase-config.example.js to firebase-config.js and fill in your values)' };
   }
   const url = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`;
   try {

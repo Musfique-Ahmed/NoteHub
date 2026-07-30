@@ -43,7 +43,15 @@ You need each of these configured once. After that, the app runs forever.
 2. **Authentication → Sign-in method → Email/Password** → Enable.
 3. **Firestore Database → Create database** → start in production mode (or test mode during development).
 4. **Firestore → Rules tab** → paste the rules from the bottom of `index.html` (the `Firestore Security Rules` comment block).
-5. **Project settings → Your apps → Web app** → copy the `firebaseConfig` object and paste it into `index.html` (replace the existing `firebaseConfig` block near the top of the `<script type="module">`).
+5. **Project settings → Your apps → Web app** → copy the `firebaseConfig` object.
+
+Now create your local config file (this is gitignored so secrets stay out of the repo):
+
+```sh
+cp firebase-config.example.js firebase-config.js
+```
+
+Open `firebase-config.js` and paste your real values into the `firebase:` and `driveUploadUrl` fields (leave the `driveUploadUrl` placeholder until step 2 below).
 
 ### 2. Google Drive upload bridge (free Apps Script)
 
@@ -55,7 +63,7 @@ This is what lets the app store files in your Google Drive instead of Firebase S
    - Execute as: **Me** (your Google account)
    - Who has access: **Anyone**
 4. Copy the deployment URL (it looks like `https://script.google.com/macros/s/AKfy.../exec`).
-5. Open `index.html`, find `const DRIVE_UPLOAD_URL =`, and paste that URL in place of the placeholder.
+5. Paste it into `firebase-config.js` as `driveUploadUrl`.
 
 That's it. The bridge uploads each file to your Drive, makes it readable by anyone with the link, and returns the public download URL stored in Firestore.
 

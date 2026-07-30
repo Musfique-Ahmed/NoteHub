@@ -1,6 +1,8 @@
 # NoteHub — intentionally minimal
-# The Firebase `firebaseConfig` object lives inside `index.html`
-# (as required by the README) and is therefore NOT ignored.
+# Local runtime config (Firebase + Drive bridge URL) lives in
+# firebase-config.js at the repo root. That file is gitignored so secrets
+# are not committed. Copy firebase-config.example.js → firebase-config.js
+# and fill in your own values to run the app locally.
 
 # OS noise
 .DS_Store
@@ -12,6 +14,21 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Puku CLI local state (embeddings DB, etc.)
+.puku/
+
+# Test artifacts
+tests/node_modules/
+tests/playwright-report/
+tests/test-results/
+
+# Local secrets — Firebase web config and Drive upload URL
+firebase-config.js
+
+# One-off history-rewrite artifacts
+.filter-replace.txt
+.git.backup.*/
 
 # Puku CLI local state (embeddings DB, etc.)
 .puku/
