@@ -1,0 +1,22 @@
+# NoteHub — intentionally minimal
+# The Firebase `firebaseConfig` object lives inside `index.html`
+# (as required by the README) and is therefore NOT ignored.
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Puku CLI local state (embeddings DB, etc.)
+.puku/
+
+# Test artifacts
+tests/node_modules/
+tests/playwright-report/
+tests/test-results/

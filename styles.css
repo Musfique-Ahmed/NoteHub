@@ -1,0 +1,819 @@
+/* =====================================================================
+   Margin — class notes, passed down
+   A field-notebook design system.
+   ===================================================================== */
+
+/* ---------- Tokens -------------------------------------------------- */
+:root {
+  /* Palette */
+  --paper:      #F5EFE2;        /* warm, slightly aged notebook page */
+  --paper-2:    #EFE7D5;        /* darker paper for cards/inset */
+  --paper-3:    #E8DEC6;        /* deepest tone, for hover/contrast */
+  --ink:        #1B1A17;        /* near-black with brown undertone */
+  --ink-soft:   #3A342B;        /* body text */
+  --fog:        #8A8378;        /* captions, metadata */
+  --rule:       #D9CFB8;        /* hairline dividers */
+  --highlighter:#E8DDA4;        /* tag / chip fill */
+  --marginia:   #B5462C;        /* single accent — TA red */
+  --marginia-2: #8E2F1B;        /* accent hover */
+
+  /* Type */
+  --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
+  --font-body:    "Inter Tight", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Scale */
+  --display:    3rem;     /* 48 */
+  --h1:         1.75rem;  /* 28 */
+  --h2:         1.125rem; /* 18 */
+  --body:       0.9375rem;/* 15 */
+  --caption:    0.75rem;  /* 12 */
+  --micro:      0.6875rem;/* 11 */
+
+  /* Layout */
+  --gutter:     18rem;    /* left margin width on desktop */
+  --max-spread: 84rem;
+  --radius:     2px;      /* deliberately square — notebook tape */
+  --radius-lg:  4px;
+
+  /* Motion */
+  --ease:       cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-fast:   140ms;
+  --dur:        260ms;
+  --dur-slow:   520ms;
+}
+
+/* ---------- Reset --------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+input, button, textarea, select { font: inherit; color: inherit; }
+a { color: inherit; text-decoration: none; }
+ul { list-style: none; margin: 0; padding: 0; }
+img, svg { display: block; max-width: 100%; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* ---------- Page ---------------------------------------------------- */
+html, body { background: var(--paper); color: var(--ink-soft); }
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--body);
+  line-height: 1.6;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Faint ruled-line texture (the notebook's horizontal lines) on the body */
+body {
+  background-image:
+    linear-gradient(to bottom, transparent 0, transparent calc(1.6rem - 1px), rgba(27,26,23,0.045) calc(1.6rem - 1px), rgba(27,26,23,0.045) 1.6rem),
+    radial-gradient(1200px 600px at 80% -10%, rgba(181,70,44,0.05), transparent 60%);
+  background-size: 100% 1.6rem, 100% 100%;
+  background-attachment: fixed;
+}
+
+/* Paper grain — a single soft noise layer */
+.paper-grain {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  opacity: 0.35;
+  mix-blend-mode: multiply;
+  background-image:
+    radial-gradient(rgba(27,26,23,0.05) 1px, transparent 1px),
+    radial-gradient(rgba(27,26,23,0.04) 1px, transparent 1px);
+  background-size: 3px 3px, 7px 7px;
+  background-position: 0 0, 1px 2px;
+}
+
+/* ---------- The spread --------------------------------------------- */
+.spread {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: var(--gutter) 1fr;
+  min-height: 100vh;
+  max-width: var(--max-spread);
+  margin: 0 auto;
+}
+
+/* ---------- Left margin (gutter) ------------------------------------ */
+.margin {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding: 2.25rem 1.5rem 1.5rem;
+  border-right: 1px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  background:
+    linear-gradient(to right, rgba(216,200,162,0.18), transparent 35%);
+}
+
+.margin__brand {
+  display: flex; align-items: center; gap: 0.625rem;
+}
+.margin__mark {
+  width: 2.25rem; height: 2.25rem;
+  display: grid; place-items: center;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.1rem;
+  border-radius: var(--radius);
+  letter-spacing: -0.02em;
+}
+.margin__wordmark { display: flex; flex-direction: column; line-height: 1.05; }
+.margin__wordmark-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.15rem;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.margin__wordmark-sub {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.8rem;
+  color: var(--fog);
+  margin-top: 0.05rem;
+}
+
+/* search */
+.margin__search { margin-top: 0.25rem; }
+.search {
+  position: relative;
+  display: flex; align-items: center;
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.search:focus-within {
+  border-color: var(--ink);
+  background: var(--paper);
+}
+.search__icon {
+  width: 1rem; height: 1rem;
+  margin-left: 0.75rem;
+  color: var(--fog);
+  flex-shrink: 0;
+}
+.search input {
+  flex: 1;
+  padding: 0.6rem 0.75rem;
+  border: 0;
+  background: transparent;
+  outline: none;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+.search input::placeholder { color: var(--fog); }
+
+.margin__index {
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.margin__index-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin: 0;
+}
+.margin__index-num {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.margin__index-label {
+  font-family: var(--font-body);
+  font-size: var(--micro);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--fog);
+}
+.margin__index-line--quiet .margin__index-label {
+  font-family: var(--font-display);
+  font-style: italic;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.85rem;
+  color: var(--fog);
+}
+
+/* ---------- Right page --------------------------------------------- */
+.page {
+  position: relative;
+  padding: 3.5rem 3rem 7rem 3rem;
+  min-width: 0;
+}
+
+/* Date stamp — the signature element */
+.date-stamp {
+  position: absolute;
+  top: 2.25rem;
+  right: 3rem;
+  padding: 0.65rem 0.9rem;
+  border: 1.5px solid var(--marginia);
+  border-radius: var(--radius);
+  color: var(--marginia);
+  font-family: var(--font-display);
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+  transform: rotate(-2.5deg);
+  background: rgba(245, 239, 226, 0.7);
+  box-shadow: 0 1px 0 rgba(181,70,44,0.08);
+}
+.date-stamp::before {
+  content: "";
+  position: absolute; left: 0.4rem; top: 50%;
+  width: 0.35rem; height: 0.35rem;
+  background: var(--marginia);
+  border-radius: 50%;
+  transform: translateY(-50%);
+}
+.date-stamp__row {
+  display: flex; align-items: baseline; gap: 0.5rem;
+  font-weight: 600;
+}
+.date-stamp__month { font-size: 1.05rem; }
+.date-stamp__day {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.date-stamp__row--meta {
+  margin-top: 0.15rem;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 0.78rem;
+  color: var(--marginia-2);
+}
+.date-stamp__vol { margin-left: auto; letter-spacing: 0.1em; }
+
+/* Hero */
+.hero { max-width: 32rem; margin-bottom: 2.5rem; }
+.hero__eyebrow {
+  font-family: var(--font-body);
+  font-size: var(--micro);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--fog);
+  margin: 0 0 0.65rem;
+}
+.hero__title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(1.6rem, 2.6vw, 2rem);
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  margin: 0;
+  font-variation-settings: "opsz" 96, "SOFT" 50;
+}
+
+/* Auth slot (top-right of hero) */
+.auth-slot {
+  position: absolute;
+  top: 2.25rem;
+  right: 12rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 2;
+}
+.auth-slot__email {
+  font-family: var(--font-mono);
+  font-size: var(--caption);
+  color: var(--fog);
+  max-width: 14rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ---------- Buttons ------------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0.95rem;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 0.9rem;
+  letter-spacing: 0.005em;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  transition: background var(--dur) var(--ease),
+              color var(--dur) var(--ease),
+              border-color var(--dur) var(--ease),
+              transform var(--dur-fast) var(--ease),
+              box-shadow var(--dur) var(--ease);
+  white-space: nowrap;
+}
+.btn:focus-visible {
+  outline: 2px solid var(--marginia);
+  outline-offset: 2px;
+}
+.btn--sm { padding: 0.4rem 0.75rem; font-size: 0.825rem; }
+.btn--primary {
+  background: var(--marginia);
+  color: var(--paper);
+}
+.btn--primary:hover { background: var(--marginia-2); transform: translateY(-1px); }
+.btn--primary:active { transform: translateY(0); }
+.btn--primary:disabled {
+  opacity: 0.6; cursor: not-allowed; transform: none;
+  background: var(--marginia);
+}
+.btn--ghost {
+  background: transparent;
+  color: var(--ink-soft);
+  border-color: var(--rule);
+}
+.btn--ghost:hover {
+  background: var(--paper-2);
+  color: var(--ink);
+  border-color: var(--ink-soft);
+}
+.btn--ink {
+  background: var(--ink);
+  color: var(--paper);
+}
+.btn--ink:hover { background: #000; transform: translateY(-1px); }
+.link {
+  background: none; border: 0; padding: 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--marginia);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease);
+}
+.link:hover { color: var(--marginia-2); text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------- Pin FAB — a piece of tape ----------------------------- */
+.pin-fab {
+  position: fixed;
+  bottom: 1.75rem;
+  right: 1.75rem;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1.15rem;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1rem;
+  border-radius: var(--radius);
+  box-shadow: 0 6px 16px rgba(27,26,23,0.18), 0 2px 4px rgba(27,26,23,0.12);
+  transition: transform var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.pin-fab[hidden] { display: none; }
+.pin-fab:hover { background: #000; transform: translate(-1px, -2px) rotate(-1deg); }
+.pin-fab__tape {
+  position: absolute;
+  top: -0.45rem;
+  left: 50%;
+  width: 4rem;
+  height: 0.9rem;
+  transform: translateX(-50%) rotate(-3deg);
+  background:
+    repeating-linear-gradient(90deg,
+      rgba(232,221,164,0.85) 0 4px,
+      rgba(232,221,164,0.6)  4px 8px);
+  border-left: 1px dashed rgba(27,26,23,0.15);
+  border-right: 1px dashed rgba(27,26,23,0.15);
+  box-shadow: 0 1px 2px rgba(27,26,23,0.08);
+}
+.pin-fab__plus {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-style: normal;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+/* ---------- Notes --------------------------------------------------- */
+.notes { margin-top: 1rem; }
+.notes__header { margin-bottom: 1.25rem; }
+.notes__title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--h1);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0;
+}
+.notes__sub {
+  font-family: var(--font-display);
+  font-style: italic;
+  color: var(--fog);
+  margin: 0.2rem 0 0;
+  font-size: 0.95rem;
+}
+
+.notes__empty {
+  border: 1.5px dashed var(--rule);
+  border-radius: var(--radius-lg);
+  padding: 3rem 1.5rem;
+  text-align: center;
+  background: var(--paper-2);
+}
+.notes__empty[hidden] { display: none; }
+.notes__empty-headline {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  color: var(--ink);
+  margin: 0;
+  font-weight: 500;
+}
+.notes__empty-sub {
+  font-family: var(--font-display);
+  font-style: italic;
+  color: var(--fog);
+  margin: 0.35rem 0 0;
+}
+
+.notes__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: 1.25rem;
+}
+
+/* Note card — a slip of paper */
+.note {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 1.35rem 1.25rem 1.15rem;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  box-shadow:
+    0 1px 0 rgba(27,26,23,0.04),
+    0 6px 14px -8px rgba(27,26,23,0.12);
+  transition: transform var(--dur) var(--ease),
+              box-shadow var(--dur) var(--ease),
+              border-color var(--dur) var(--ease);
+}
+.note::after {
+  /* faint horizontal rule lines inside the card, like ruled paper */
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(1.6rem - 1px),
+    rgba(27,26,23,0.04) calc(1.6rem - 1px),
+    rgba(27,26,23,0.04) 1.6rem
+  );
+  background-size: 100% 1.6rem;
+  opacity: 0.6;
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 70%);
+}
+.note:hover {
+  transform: translate(-1px, -2px) rotate(-0.25deg);
+  border-color: var(--ink-soft);
+  box-shadow:
+    0 1px 0 rgba(27,26,23,0.05),
+    0 12px 22px -10px rgba(27,26,23,0.18);
+}
+
+.note__tape {
+  position: absolute;
+  top: -0.55rem;
+  left: 1.25rem;
+  width: 3rem;
+  height: 0.7rem;
+  background:
+    repeating-linear-gradient(90deg,
+      rgba(232,221,164,0.85) 0 4px,
+      rgba(232,221,164,0.6)  4px 8px);
+  transform: rotate(-4deg);
+  border-left: 1px dashed rgba(27,26,23,0.15);
+  border-right: 1px dashed rgba(27,26,23,0.15);
+  box-shadow: 0 1px 2px rgba(27,26,23,0.08);
+}
+
+/* Pencil margin annotation in the top-right corner */
+.note__course {
+  position: absolute;
+  top: 0.85rem;
+  right: 1rem;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.85rem;
+  color: var(--fog);
+  letter-spacing: 0.02em;
+  transform: rotate(-1deg);
+  /* leave room so the title can't underlap */
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note__title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.15rem;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  margin: 0;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  /* give the title room next to the course annotation */
+  padding-right: 0.5rem;
+}
+.note__creator {
+  font-family: var(--font-display);
+  font-style: italic;
+  color: var(--ink-soft);
+  margin: 0.35rem 0 0;
+  font-size: 0.95rem;
+}
+
+.note__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--rule);
+  position: relative;
+  z-index: 1;
+}
+.note__size {
+  font-family: var(--font-mono);
+  font-size: var(--caption);
+  color: var(--fog);
+  flex-shrink: 0;
+}
+
+.note__download {
+  margin-top: 0.85rem;
+  width: 100%;
+  padding: 0.6rem 0.85rem;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 0.92rem;
+  position: relative;
+  z-index: 1;
+  border-radius: var(--radius);
+}
+
+/* ---------- Modal --------------------------------------------------- */
+.modal[hidden] { display: none; }
+.modal {
+  position: fixed; inset: 0; z-index: 50;
+  display: grid; place-items: center;
+  padding: 1rem;
+}
+.modal__scrim {
+  position: absolute; inset: 0;
+  background: rgba(27,26,23,0.45);
+  backdrop-filter: blur(2px);
+  animation: scrimIn var(--dur) var(--ease);
+}
+.modal__panel {
+  position: relative;
+  width: 100%;
+  max-width: 32rem;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem 1.75rem 1.5rem;
+  box-shadow:
+    0 1px 0 rgba(27,26,23,0.05),
+    0 24px 48px -16px rgba(27,26,23,0.4);
+  animation: panelIn var(--dur-slow) var(--ease);
+}
+.modal__panel--sm { max-width: 26rem; }
+.modal__header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+.modal__title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0;
+}
+.modal__close {
+  width: 1.75rem; height: 1.75rem;
+  display: grid; place-items: center;
+  font-size: 1.5rem;
+  color: var(--fog);
+  border-radius: var(--radius);
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.modal__close:hover { color: var(--ink); background: var(--paper-2); }
+
+/* ---------- Forms --------------------------------------------------- */
+.form { display: flex; flex-direction: column; gap: 0.9rem; }
+.field { display: flex; flex-direction: column; gap: 0.35rem; }
+.field--row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; }
+.field label {
+  font-family: var(--font-body);
+  font-size: var(--micro);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--fog);
+}
+.field input[type="text"],
+.field input[type="email"],
+.field input[type="password"] {
+  padding: 0.65rem 0.75rem;
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--ink);
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.field input:focus {
+  outline: none;
+  border-color: var(--ink);
+  background: var(--paper);
+}
+.field input[type="file"] {
+  padding: 0.4rem 0;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+.field input[type="file"]::file-selector-button {
+  margin-right: 0.75rem;
+  padding: 0.45rem 0.75rem;
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: 0.825rem;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.field input[type="file"]::file-selector-button:hover {
+  background: var(--paper-3);
+  border-color: var(--ink-soft);
+}
+.field__hint {
+  margin: 0.15rem 0 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.85rem;
+  color: var(--fog);
+}
+.form__progress {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--caption);
+  color: var(--marginia);
+}
+.form__error {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  background: rgba(181,70,44,0.08);
+  border-left: 2px solid var(--marginia);
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--marginia-2);
+}
+.form__error[hidden] { display: none; }
+.form__footer {
+  display: flex; justify-content: flex-end; gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+.form__footer--split { justify-content: space-between; align-items: center; }
+
+/* ---------- Toast — a margin note --------------------------------- */
+.margin-note {
+  position: fixed;
+  left: 0;
+  bottom: 1.75rem;
+  z-index: 60;
+  max-width: 22rem;
+  padding: 0.65rem 1rem;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.95rem;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  box-shadow: 0 8px 18px -8px rgba(27,26,23,0.4);
+  transform: translateX(-110%);
+  opacity: 0;
+  transition: transform var(--dur-slow) var(--ease), opacity var(--dur) var(--ease);
+}
+.margin-note[hidden] { display: none; }
+.margin-note.is-in { transform: translateX(0); opacity: 1; }
+
+/* ---------- Setup banner ------------------------------------------- */
+.setup-banner {
+  position: relative;
+  z-index: 30;
+  background: rgba(232,221,164,0.6);
+  border-bottom: 1px solid #c8b775;
+  color: var(--ink);
+}
+.setup-banner[hidden] { display: none; }
+.setup-banner__inner {
+  max-width: var(--max-spread);
+  margin: 0 auto;
+  padding: 0.85rem 1.5rem;
+  font-size: 0.875rem;
+}
+.setup-banner__title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--marginia-2);
+  margin-right: 0.4rem;
+}
+.setup-banner__hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+.setup-banner__hint a { color: var(--marginia); text-decoration: underline; }
+
+/* ---------- Motion ------------------------------------------------- */
+@keyframes scrimIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(8px) rotate(-0.5deg); }
+  to   { opacity: 1; transform: translateY(0)    rotate(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ---------- Responsive --------------------------------------------- */
+@media (max-width: 960px) {
+  :root { --gutter: 16rem; }
+  .page { padding: 2.5rem 1.75rem 6rem; }
+  .date-stamp { right: 1.75rem; top: 1.75rem; }
+  .auth-slot { right: 10rem; top: 1.75rem; }
+}
+
+@media (max-width: 760px) {
+  .spread {
+    grid-template-columns: 1fr;
+  }
+  .margin {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+    padding: 1.25rem 1.25rem 1.5rem;
+    gap: 1rem;
+  }
+  .page { padding: 2rem 1.25rem 6rem; }
+  .date-stamp {
+    position: static;
+    transform: rotate(-1.5deg);
+    display: inline-flex;
+    margin-bottom: 1.25rem;
+  }
+  .auth-slot {
+    position: static;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+  .field--row { grid-template-columns: 1fr; }
+  .pin-fab { bottom: 1rem; right: 1rem; padding: 0.75rem 1rem; }
+  .pin-fab__label { display: none; }
+}

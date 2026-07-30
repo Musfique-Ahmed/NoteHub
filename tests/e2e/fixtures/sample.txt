@@ -1,0 +1,13 @@
+These are sample class notes for NoteHub Playwright tests.
+
+Chapter 1: Linear Algebra fundamentals
+- Vectors and vector spaces
+- Matrix operations
+- Eigenvalues and eigenvectors
+
+Chapter 2: Differential Equations
+- First-order ODEs
+- Second-order linear ODEs
+- Series solutions
+
+End of sample.

@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Margin — class notes, passed down</title>
+
+  <!-- Fonts: a scholarly serif with character, a clean body face, a mono for data -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,500&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet"
+  />
+
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <!-- Paper grain — a single layered noise that animates on load -->
+  <div class="paper-grain" aria-hidden="true"></div>
+
+  <!-- Setup banner (shown only when Firebase returns CONFIGURATION_NOT_FOUND) -->
+  <div id="setup-banner" class="setup-banner" hidden>
+    <div class="setup-banner__inner">
+      <strong class="setup-banner__title">Firebase setup incomplete</strong>
+      <span id="setup-banner-msg"></span>
+      <span class="setup-banner__hint">
+        Open the
+        <a id="setup-console-link" href="#" target="_blank" rel="noopener">Firebase Console for project <code id="setup-project-id"></code></a>
+        and enable <strong>Authentication → Sign-in method → Email/Password</strong>, then paste the Firestore rules (see bottom of this file) or use the default test rules.
+      </span>
+    </div>
+  </div>
+
+  <!-- The notebook spread -->
+  <div class="spread">
+    <!-- Left margin (gutter) -->
+    <aside class="margin" aria-label="Site">
+      <div class="margin__brand">
+        <div class="margin__mark" aria-hidden="true">M.</div>
+        <div class="margin__wordmark">
+          <span class="margin__wordmark-name">Margin</span>
+          <span class="margin__wordmark-sub">class notes</span>
+        </div>
+      </div>
+
+      <div class="margin__search">
+        <label for="search" class="sr-only">Search notes</label>
+        <div class="search">
+          <svg class="search__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path stroke-linecap="round" d="M21 21l-4.35-4.35" />
+          </svg>
+          <input
+            id="search"
+            type="text"
+            placeholder="title, creator, course…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+      </div>
+
+      <!-- Index — real, legible structural information -->
+      <div class="margin__index" aria-label="Library index">
+        <p class="margin__index-line">
+          <span class="margin__index-num" id="notes-count">0</span>
+          <span class="margin__index-label">notes pinned</span>
+        </p>
+        <p class="margin__index-line margin__index-line--quiet">
+          <span class="margin__index-label">newest first</span>
+        </p>
+      </div>
+    </aside>
+
+    <!-- Right page -->
+    <main class="page">
+      <!-- Date stamp — the signature element -->
+      <div class="date-stamp" aria-hidden="true">
+        <div class="date-stamp__row">
+          <span class="date-stamp__month" id="ds-month">july</span>
+          <span class="date-stamp__day"   id="ds-day">25</span>
+        </div>
+        <div class="date-stamp__row date-stamp__row--meta">
+          <span id="ds-weekday">friday</span>
+          <span class="date-stamp__vol">vol. iii</span>
+        </div>
+      </div>
+
+      <!-- Hero — short, on the job -->
+      <header class="hero">
+        <p class="hero__eyebrow">a student commons</p>
+        <h1 class="hero__title">Find a class note. Or share one.</h1>
+      </header>
+
+      <!-- Auth slot, in the header so it doesn't compete with the hero -->
+      <div class="auth-slot" id="auth-slot" aria-label="Account"></div>
+
+      <!-- Notes -->
+      <section class="notes">
+        <div class="notes__header">
+          <h2 class="notes__title">Notes</h2>
+          <p class="notes__sub">Pinned by anyone, listed in the order they were added.</p>
+        </div>
+
+        <div id="notes-empty" class="notes__empty" hidden>
+          <p class="notes__empty-headline">Nothing here yet.</p>
+          <p class="notes__empty-sub">Pin the first note — even a messy one helps.</p>
+        </div>
+
+        <div id="notes-grid" class="notes__grid" aria-live="polite"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Pin FAB — a tape strip -->
+  <button id="share-fab" class="pin-fab" type="button" aria-label="Pin a new note">
+    <span class="pin-fab__tape" aria-hidden="true"></span>
+    <span class="pin-fab__plus" aria-hidden="true">+</span>
+    <span class="pin-fab__label">Pin a note</span>
+  </button>
+
+  <!-- Upload modal -->
+  <div id="upload-modal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="upload-title">
+    <div class="modal__scrim" data-close-upload></div>
+    <div class="modal__panel">
+      <header class="modal__header">
+        <h2 id="upload-title" class="modal__title">Pin a class note</h2>
+        <button class="modal__close" data-close-upload aria-label="Close">×</button>
+      </header>
+
+      <form id="upload-form" class="form" novalidate>
+        <div class="field">
+          <label for="up-title">Title</label>
+          <input id="up-title" name="title" type="text" required placeholder="Linear Algebra — Ch. 4" />
+        </div>
+        <div class="field field--row">
+          <div class="field">
+            <label for="up-creator">Creator</label>
+            <input id="up-creator" name="creator" type="text" required placeholder="Your name or handle" />
+          </div>
+          <div class="field">
+            <label for="up-course">Course</label>
+            <input id="up-course" name="course" type="text" required placeholder="MATH 240" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="up-file">File</label>
+          <input id="up-file" name="file" type="file" accept=".pdf,.docx,.txt" required />
+          <p class="field__hint">PDF, DOCX, or TXT — up to 10 MB (stored in your Drive via the bridge).</p>
+        </div>
+        <p id="upload-progress" class="form__progress" hidden></p>
+        <footer class="form__footer">
+          <button type="button" class="btn btn--ghost" data-close-upload>Cancel</button>
+          <button type="submit" id="upload-submit" class="btn btn--primary">Pin to library</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- Auth modal -->
+  <div id="auth-modal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="auth-title">
+    <div class="modal__scrim" data-close-auth></div>
+    <div class="modal__panel modal__panel--sm">
+      <header class="modal__header">
+        <h2 id="auth-title" class="modal__title">Sign in</h2>
+        <button class="modal__close" data-close-auth aria-label="Close">×</button>
+      </header>
+
+      <form id="auth-form" class="form" novalidate>
+        <div class="field">
+          <label for="auth-email">Email</label>
+          <input id="auth-email" name="email" type="email" required autocomplete="email" placeholder="you@school.edu" />
+        </div>
+        <div class="field">
+          <label for="auth-password">Password</label>
+          <input id="auth-password" name="password" type="password" required minlength="6" autocomplete="current-password" />
+        </div>
+        <p id="auth-error" class="form__error" hidden></p>
+        <footer class="form__footer form__footer--split">
+          <button type="button" id="auth-toggle" class="link">Need an account? Register</button>
+          <button type="submit" id="auth-submit" class="btn btn--primary">Sign in</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast — a margin note that slides in from the left -->
+  <div id="toast" class="margin-note" role="status" aria-live="polite" hidden></div>
+
+  <script type="module">
+    // -------------------------------------------------------------------
+    // Firebase config (provided by user)
+    // -------------------------------------------------------------------
+    const firebaseConfig = {
+      apiKey: "YOUR_FIREBASE_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.firebasestorage.app",
+      messagingSenderId: "1014814039666",
+      appId: "1:1014814039666:web:626fbc97189ba1bbbcaceb",
+      measurementId: "G-YZ11EVKNQ0"
+    };
+
+    // -------------------------------------------------------------------
+    // Firebase modular SDK (loaded via ESM CDN)
+    // -------------------------------------------------------------------
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged,
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      query,
+      orderBy,
+      onSnapshot,
+      addDoc,
+      serverTimestamp,
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // -------------------------------------------------------------------
+    // Google Drive upload bridge (free tier, no Firebase Storage needed)
+    //
+    // Deploy the Apps Script in drive-upload.gs as a Web App
+    // (Execute as: Me / Anyone) and paste the resulting URL below.
+    // The script uploads the file to your Drive, shares it as
+    // "anyone with the link can view", and returns JSON
+    // { id, name, mimeType, size, webViewLink }.
+    // -------------------------------------------------------------------
+    const DRIVE_UPLOAD_URL =
+      (typeof window !== "undefined" && window.NOTEHUB_CONFIG && window.NOTEHUB_CONFIG.driveUploadUrl) ||
+      "PASTE_YOUR_APPS_SCRIPT_DEPLOYMENT_URL_HERE";
+    const DRIVE_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+
+    // -------------------------------------------------------------------
+    // State
+    // -------------------------------------------------------------------
+    let allNotes = [];
+    let searchQuery = "";
+    let authMode = "login"; // or "register"
+    let currentUser = null;
+
+    // -------------------------------------------------------------------
+    // DOM refs
+    // -------------------------------------------------------------------
+    const authSlot        = document.getElementById("auth-slot");
+    const shareFab        = document.getElementById("share-fab");
+    const notesGrid       = document.getElementById("notes-grid");
+    const notesEmpty      = document.getElementById("notes-empty");
+    const notesCount      = document.getElementById("notes-count");
+    const searchInput     = document.getElementById("search");
+    const uploadModal     = document.getElementById("upload-modal");
+    const authModal       = document.getElementById("auth-modal");
+    const authTitle       = document.getElementById("auth-title");
+    const authToggle      = document.getElementById("auth-toggle");
+    const authSubmit      = document.getElementById("auth-submit");
+    const authForm        = document.getElementById("auth-form");
+    const authError       = document.getElementById("auth-error");
+    const uploadForm      = document.getElementById("upload-form");
+    const uploadProgress  = document.getElementById("upload-progress");
+    const uploadSubmit    = document.getElementById("upload-submit");
+    const toast           = document.getElementById("toast");
+
+    // -------------------------------------------------------------------
+    // Date stamp (signature element)
+    // -------------------------------------------------------------------
+    (function setDateStamp() {
+      const now = new Date();
+      const months = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+      const days   = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
+      const roman  = ["i","ii","iii","iv","v","vi","vii","viii","ix","x","xi","xii"];
+      document.getElementById("ds-month").textContent   = months[now.getMonth()];
+      document.getElementById("ds-day").textContent     = String(now.getDate());
+      document.getElementById("ds-weekday").textContent = days[now.getDay()];
+      document.querySelector(".date-stamp__vol").textContent = `vol. ${roman[now.getMonth()]}`;
+    })();
+
+    // -------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------
+    function showToast(msg, ms = 3000) {
+      toast.textContent = msg;
+      toast.hidden = false;
+      toast.classList.add("is-in");
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(() => {
+        toast.classList.remove("is-in");
+        setTimeout(() => { toast.hidden = true; }, 300);
+      }, ms);
+    }
+
+    function showSetupBanner(message, nextStep) {
+      const banner = document.getElementById("setup-banner");
+      const msg = document.getElementById("setup-banner-msg");
+      const projectIdEl = document.getElementById("setup-project-id");
+      const link = document.getElementById("setup-console-link");
+      msg.textContent = ` ${message}${nextStep ? ` Next step: ${nextStep}.` : ""}`;
+      projectIdEl.textContent = firebaseConfig.projectId || "(unknown)";
+      link.href = `https://console.firebase.google.com/project/${firebaseConfig.projectId}/overview`;
+      banner.hidden = false;
+    }
+
+    function formatSize(bytes) {
+      if (bytes == null) return "";
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    function openModal(el)  { el.hidden = false; }
+    function closeModal(el) { el.hidden = true; }
+
+    function escapeHTML(s) {
+      return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[c]));
+    }
+
+    function initialOf(name) {
+      const s = String(name || "").trim();
+      return s ? s[0].toUpperCase() : "?";
+    }
+
+    // -------------------------------------------------------------------
+    // Auth UI
+    // -------------------------------------------------------------------
+    function renderAuthSlot(user) {
+      currentUser = user;
+      if (user) {
+        authSlot.innerHTML = `
+          <span class="auth-slot__email">${escapeHTML(user.email)}</span>
+          <button id="logout-btn" class="btn btn--ghost btn--sm" type="button">Sign out</button>
+        `;
+        document.getElementById("logout-btn").addEventListener("click", async () => {
+          try { await signOut(auth); showToast("Signed out."); }
+          catch (e) { showToast(e.message); }
+        });
+        shareFab.hidden = false;
+      } else {
+        authSlot.innerHTML = `
+          <button id="login-btn" class="btn btn--ghost btn--sm" type="button">Sign in</button>
+          <button id="register-btn" class="btn btn--primary btn--sm" type="button">Register</button>
+        `;
+        document.getElementById("login-btn").addEventListener("click", () => openAuthModal("login"));
+        document.getElementById("register-btn").addEventListener("click", () => openAuthModal("register"));
+        shareFab.hidden = true;
+      }
+    }
+
+    function openAuthModal(mode) {
+      authMode = mode;
+      authError.hidden = true;
+      authError.textContent = "";
+      if (mode === "login") {
+        authTitle.textContent = "Sign in";
+        authSubmit.textContent = "Sign in";
+        authToggle.textContent = "Need an account? Register";
+      } else {
+        authTitle.textContent = "Create an account";
+        authSubmit.textContent = "Register";
+        authToggle.textContent = "Already have an account? Sign in";
+      }
+      openModal(authModal);
+      setTimeout(() => document.getElementById("auth-email").focus(), 50);
+    }
+
+    authToggle.addEventListener("click", () => {
+      openAuthModal(authMode === "login" ? "register" : "login");
+    });
+
+    authForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      authError.hidden = true;
+      const email = authForm.email.value.trim();
+      const password = authForm.password.value;
+      try {
+        if (authMode === "register") {
+          await createUserWithEmailAndPassword(auth, email, password);
+          showToast("Account created. Welcome to the library.");
+        } else {
+          await signInWithEmailAndPassword(auth, email, password);
+          showToast("Signed in.");
+        }
+        closeModal(authModal);
+        authForm.reset();
+      } catch (err) {
+        const code = err.code || "";
+        const msg = err.message.replace("Firebase:", "").trim();
+        authError.textContent = msg;
+        authError.hidden = false;
+        if (code === "auth/configuration-not-found" || /CONFIGURATION_NOT_FOUND/i.test(msg)) {
+          showSetupBanner(
+            "Email/Password sign-in isn't enabled for this Firebase project.",
+            "Authentication → Sign-in method → Email/Password"
+          );
+        }
+      }
+    });
+
+    document.querySelectorAll("[data-close-auth]").forEach(el =>
+      el.addEventListener("click", () => closeModal(authModal))
+    );
+
+    // Close any open modal on Escape
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      if (!uploadModal.hidden) closeModal(uploadModal);
+      if (!authModal.hidden)   closeModal(authModal);
+    });
+
+    // -------------------------------------------------------------------
+    // Upload modal
+    // -------------------------------------------------------------------
+    shareFab.addEventListener("click", () => {
+      if (!currentUser) {
+        showToast("Sign in first to pin a note.");
+        openAuthModal("login");
+        return;
+      }
+      openModal(uploadModal);
+      setTimeout(() => document.getElementById("up-title").focus(), 50);
+    });
+
+    document.querySelectorAll("[data-close-upload]").forEach(el =>
+      el.addEventListener("click", () => {
+        closeModal(uploadModal);
+        uploadForm.reset();
+        uploadProgress.hidden = true;
+        uploadProgress.textContent = "";
+      })
+    );
+
+    uploadForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const user = auth.currentUser;
+      if (!user) { showToast("Sign in first to pin a note."); return; }
+
+      const fd = new FormData(uploadForm);
+      const title   = fd.get("title").toString().trim();
+      const creator = fd.get("creator").toString().trim();
+      const course  = fd.get("course").toString().trim();
+      const file    = fd.get("file");
+      if (!file || !file.name) { showToast("Choose a file."); return; }
+
+      if (!DRIVE_UPLOAD_URL || DRIVE_UPLOAD_URL.startsWith("PASTE_")) {
+        showSetupBanner(
+          "Google Drive upload bridge is not configured yet.",
+          "Deploy drive-upload.gs as a Web App, then paste the URL into DRIVE_UPLOAD_URL near the top of this file"
+        );
+        return;
+      }
+      if (file.size > DRIVE_MAX_BYTES) {
+        showToast(`File too large. Max ${DRIVE_MAX_BYTES / 1024 / 1024} MB.`);
+        return;
+      }
+
+      uploadSubmit.disabled = true;
+      uploadProgress.hidden = false;
+      uploadProgress.textContent = "Reading file…";
+
+      let base64;
+      try {
+        base64 = await fileToBase64(file, (pct) => {
+          uploadProgress.textContent = `Encoding… ${pct}%`;
+        });
+      } catch (err) {
+        uploadSubmit.disabled = false;
+        uploadProgress.hidden = true;
+        uploadProgress.textContent = "";
+        showToast(`Couldn't read file: ${err.message}`);
+        return;
+      }
+
+      uploadProgress.textContent = "Uploading to Drive…";
+
+      let driveResult;
+      try {
+        driveResult = await postToDriveBridge({
+          filename: file.name,
+          mimeType: file.type || "application/octet-stream",
+          bytes: base64,
+        });
+      } catch (err) {
+        uploadSubmit.disabled = false;
+        uploadProgress.hidden = true;
+        uploadProgress.textContent = "";
+        showToast(`Drive upload failed: ${err.message}`);
+        return;
+      }
+
+      const downloadURL = `https://drive.google.com/uc?export=download&id=${driveResult.id}`;
+
+      try {
+        await addDoc(collection(db, "notes"), {
+          title,
+          creator,
+          course,
+          fileName: driveResult.name || file.name,
+          fileType: driveResult.mimeType || file.type || "",
+          size: driveResult.size || file.size,
+          driveFileId: driveResult.id,
+          downloadURL,
+          uploadedBy: user.uid,
+          uploaderEmail: user.email || "",
+          uploadedAt: serverTimestamp(),
+        });
+        uploadProgress.textContent = "Pinned.";
+        showToast("Note pinned to the library.");
+        setTimeout(() => {
+          closeModal(uploadModal);
+          uploadForm.reset();
+          uploadProgress.hidden = true;
+          uploadProgress.textContent = "";
+          uploadSubmit.disabled = false;
+        }, 400);
+      } catch (err) {
+        uploadSubmit.disabled = false;
+        uploadProgress.hidden = true;
+        uploadProgress.textContent = "";
+        showToast(`Save failed: ${err.message}`);
+      }
+    });
+
+    // -------------------------------------------------------------------
+    // File → base64 (with progress callback for files in memory)
+    // -------------------------------------------------------------------
+    function fileToBase64(file, onProgress) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(reader.error || new Error("FileReader error"));
+        reader.onprogress = (e) => {
+          if (e.lengthComputable && typeof onProgress === "function") {
+            onProgress(Math.round((e.loaded / e.total) * 100));
+          }
+        };
+        reader.onload = () => {
+          // result is "data:<mime>;base64,XXXX" — keep only XXXX
+          const result = reader.result || "";
+          const idx = result.indexOf(",");
+          resolve(idx >= 0 ? result.slice(idx + 1) : result);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // -------------------------------------------------------------------
+    // POST a file (as base64 JSON) to the Apps Script Web App
+    // -------------------------------------------------------------------
+    async function postToDriveBridge({ filename, mimeType, bytes }) {
+      const res = await fetch(DRIVE_UPLOAD_URL, {
+        method: "POST",
+        // No custom headers → no preflight, Apps Script accepts JSON natively.
+        body: JSON.stringify({ filename, mimeType, bytes }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json().catch(() => ({}));
+      if (json.error) throw new Error(json.error);
+      if (!json.id) throw new Error("Drive did not return a file id");
+      return json;
+    }
+
+    // -------------------------------------------------------------------
+    // Notes feed (real-time)
+    // -------------------------------------------------------------------
+    const notesQuery = query(collection(db, "notes"), orderBy("uploadedAt", "desc"));
+
+    onSnapshot(notesQuery, (snap) => {
+      allNotes = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      renderNotes();
+    }, (err) => {
+      console.error("notes snapshot error", err);
+      const code = err.code || "";
+      if (/permission-denied/i.test(code) || /permission/i.test(err.message)) {
+        showSetupBanner(
+          "Firestore denied access to the 'notes' collection.",
+          "Firestore → Rules → paste the rules from the bottom of this file"
+        );
+      } else if (/unavailable|internal/i.test(code)) {
+        showSetupBanner(
+          "Couldn't reach Firestore.",
+          "Confirm Firestore is created in the Firebase Console"
+        );
+      } else {
+        showToast("Couldn't load notes.");
+      }
+    });
+
+    function renderNotes() {
+      const q = searchQuery.trim().toLowerCase();
+      const filtered = q
+        ? allNotes.filter((n) =>
+            [n.title, n.creator, n.course]
+              .filter(Boolean)
+              .some((f) => f.toLowerCase().includes(q))
+          )
+        : allNotes;
+
+      notesCount.textContent = String(allNotes.length);
+
+      if (filtered.length === 0) {
+        notesGrid.innerHTML = "";
+        notesEmpty.hidden = false;
+        return;
+      }
+      notesEmpty.hidden = true;
+      notesGrid.innerHTML = filtered.map(noteCardHTML).join("");
+      notesGrid.querySelectorAll("[data-download]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const url = btn.getAttribute("data-url");
+          const name = btn.getAttribute("data-name");
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = name || "";
+          a.target = "_blank";
+          a.rel = "noopener";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        });
+      });
+    }
+
+    function noteCardHTML(n) {
+      const size = formatSize(n.size);
+      const monoSize = size ? `<span class="note__size">${size}</span>` : "";
+      const course = n.course ? escapeHTML(n.course) : "";
+      const creator = n.creator ? escapeHTML(n.creator) : "Anonymous";
+      return `
+        <article class="note">
+          <span class="note__tape" aria-hidden="true"></span>
+          ${course ? `<span class="note__course">${course}</span>` : ""}
+          <h3 class="note__title" title="${escapeHTML(n.title)}">${escapeHTML(n.title)}</h3>
+          <p class="note__creator">${creator}</p>
+          <div class="note__foot">
+            ${monoSize}
+          </div>
+          <button
+            class="btn btn--ink note__download"
+            type="button"
+            data-download
+            data-url="${escapeHTML(n.downloadURL || "")}"
+            data-name="${escapeHTML(n.fileName || "download")}"
+          >
+            Download
+          </button>
+        </article>
+      `;
+    }
+
+    // -------------------------------------------------------------------
+    // Search
+    // -------------------------------------------------------------------
+    searchInput.addEventListener("input", (e) => {
+      searchQuery = e.target.value;
+      renderNotes();
+    });
+
+    // -------------------------------------------------------------------
+    // Auth state
+    // -------------------------------------------------------------------
+    onAuthStateChanged(auth, (user) => {
+      renderAuthSlot(user);
+    });
+  </script>
+
+  <!--
+  ====================================================================
+  Firestore Security Rules — paste into the Firebase console.
+  (Firebase Storage is NOT used. Files live in your Google Drive via
+  the Apps Script bridge in drive-upload.gs.)
+
+  Firestore (Rules tab):
+  --------------------------------------------------------------------
+  rules_version = '2';
+  service cloud.firestore {
+    match /databases/{database}/documents {
+      match /notes/{noteId} {
+        allow read: if true;
+        allow create, update: if request.auth != null
+          && request.auth.uid == request.resource.data.uploadedBy;
+        allow delete: if request.auth != null
+          && request.auth.uid == resource.data.uploadedBy;
+      }
+    }
+  }
+  ====================================================================
+  -->
+
+</body>
+</html>

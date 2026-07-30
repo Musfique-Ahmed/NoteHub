@@ -6,65 +6,82 @@ NoteHub is a collaborative web platform designed for students to effortlessly sh
 
 * **User Authentication:** Secure registration and login system for users to manage their accounts.
 * **Share Notes:** An intuitive modal allows authenticated users to upload their notes (PDF, DOCX, TXT) with details like title, creator name, and course.
-* **Real-time Database:** Built with Firebase, the platform updates in real-time as new notes are shared.
+* **Real-time Database:** Built with Firebase Firestore, the platform updates in real-time as new notes are shared.
 * **Dynamic Search:** Instantly search and filter through all available notes by title, creator, or course name.
 * **Download Materials:** Download any note with a single click.
-* **Responsive Design:** A clean, modern, and fully responsive user interface built with Tailwind CSS, ensuring a great experience on any device.
+* **Responsive Design:** A clean, modern, and fully responsive user interface built with a custom design system (vanilla CSS), ensuring a great experience on any device.
 
-## 💻 Technology Stack
+## 💻 Technology Stack (all free tier)
 
-* **Frontend:**
-    * HTML5
-    * Tailwind CSS
-    * JavaScript (ES6+ Modules)
-* **Backend & Database:**
-    * **Firebase Authentication:** For handling user sign-up, login, and session management.
-    * **Firebase Firestore:** As a real-time NoSQL database to store information about the notes.
-    * **Firebase Storage:** For uploading and hosting the note files.
+* **Frontend:** HTML5, vanilla CSS, JavaScript (ES6 modules).
+* **Auth & metadata:** Firebase Authentication + Cloud Firestore (Spark plan).
+* **File storage:** Google Drive via a Google Apps Script Web App bridge (no Firebase Storage, no Blaze upgrade required).
 
-## 🚀 Getting Started
+## ▶️ Run Locally
 
-To get a local copy up and running, follow these simple steps.
+Because the app uses ES modules, serve it over `http://` (not `file://`). From the repo root:
 
-### Prerequisites
+```sh
+# macOS / Linux
+python3 -m http.server 3050
 
-You need a web browser and a Firebase account.
+# Windows (PowerShell or Git Bash)
+py -m http.server 3050
+```
 
-### Installation & Setup
+Then open <http://localhost:3050>.
 
-1.  **Clone the repo (or download the `index.html` file)**
-    ```sh
-    git clone [https://github.com/your_username_/NoteHub.git](https://github.com/your_username_/NoteHub.git)
-    ```
-2.  **Set up a Firebase Project:**
-    * Go to the [Firebase Console](https://console.firebase.google.com/).
-    * Create a new project.
-    * In your project, create a new Web App.
-    * Enable **Authentication** (Email/Password method).
-    * Set up **Firestore** and **Storage** with the default security rules for development.
+> `npx serve -l 3050` works too if you don't have Python.
 
-3.  **Configure Firebase in `index.html`:**
-    * Navigate to your Web App's settings in the Firebase project.
-    * Find your Firebase SDK configuration object.
-    * Copy your configuration object and paste it into the `<script type="module">` section of `index.html`:
-        ```javascript
-        const firebaseConfig = {
-          apiKey: "YOUR_API_KEY",
-          authDomain: "YOUR_AUTH_DOMAIN",
-          projectId: "YOUR_PROJECT_ID",
-          storageBucket: "YOUR_STORAGE_BUCKET",
-          messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-          appId: "YOUR_APP_ID"
-        };
-        ```
-4.  **Run the application:**
-    * Simply open the `index.html` file in your web browser.
+## 🔐 One-time setup (10 minutes)
+
+You need each of these configured once. After that, the app runs forever.
+
+### 1. Firebase (free Spark plan)
+
+1. Open the [Firebase Console](https://console.firebase.google.com/) and create a project (or use an existing one).
+2. **Authentication → Sign-in method → Email/Password** → Enable.
+3. **Firestore Database → Create database** → start in production mode (or test mode during development).
+4. **Firestore → Rules tab** → paste the rules from the bottom of `index.html` (the `Firestore Security Rules` comment block).
+5. **Project settings → Your apps → Web app** → copy the `firebaseConfig` object and paste it into `index.html` (replace the existing `firebaseConfig` block near the top of the `<script type="module">`).
+
+### 2. Google Drive upload bridge (free Apps Script)
+
+This is what lets the app store files in your Google Drive instead of Firebase Storage.
+
+1. Open <https://script.google.com> and create a new project.
+2. Paste the entire contents of `drive-upload.gs` into `Code.gs`.
+3. **Deploy → New deployment → Web app**.
+   - Execute as: **Me** (your Google account)
+   - Who has access: **Anyone**
+4. Copy the deployment URL (it looks like `https://script.google.com/macros/s/AKfy.../exec`).
+5. Open `index.html`, find `const DRIVE_UPLOAD_URL =`, and paste that URL in place of the placeholder.
+
+That's it. The bridge uploads each file to your Drive, makes it readable by anyone with the link, and returns the public download URL stored in Firestore.
+
+> ⚠️ The bridge URL is public — anyone on the internet can POST to it. `drive-upload.gs` enforces a 10 MB cap and an allowlist of MIME types (PDF, DOCX, TXT). If you need stronger protection, add a Firebase ID token check in the Apps Script.
+
+### 3. (Optional) Clean up old Firebase Storage references
+
+If you previously enabled Firebase Storage and don't want it, leave it disabled — `index.html` no longer uses it.
 
 ## 📝 How to Use
 
-1.  **Register:** Create a new account using your email and a password.
-2.  **Login:** Sign in to your existing account.
-3.  **Browse & Search:** Once logged in, you can see all shared notes. Use the search bar to find specific materials.
-4.  **Download:** Click the "Download" button on any note card to save the file.
-5.  **Share:** Click the "Share Notes" button, fill in the details, select your file, and submit to upload it for others to see.
-6.  **Logout:** Click the logout button in the header to securely end your session.
+1. **Register:** Create a new account using your email and a password.
+2. **Login:** Sign in to your existing account.
+3. **Browse & Search:** Once logged in, you can see all shared notes. Use the search bar to find specific materials.
+4. **Download:** Click the "Download" button on any note card to save the file.
+5. **Share:** Click the "Pin a note" button, fill in the details, select your file, and submit to upload it for others to see.
+6. **Logout:** Click the logout button in the header to securely end your session.
+
+## 🧪 Tests
+
+End-to-end tests live in `tests/` and run with Playwright. From the `tests/` directory:
+
+```sh
+npm install
+npx playwright install chromium
+npx playwright test
+```
+
+The tests register users, upload notes, exercise search, and verify that logged-out users can browse. The Drive upload bridge is intercepted by the test harness so the suite runs offline and doesn't pollute your Drive.
