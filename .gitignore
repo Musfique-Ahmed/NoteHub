@@ -29,11 +29,3 @@ firebase-config.js
 # One-off history-rewrite artifacts
 .filter-replace.txt
 .git.backup.*/
-
-# Puku CLI local state (embeddings DB, etc.)
-.puku/
-
-# Test artifacts
-tests/node_modules/
-tests/playwright-report/
-tests/test-results/
