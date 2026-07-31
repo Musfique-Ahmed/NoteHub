@@ -31,15 +31,29 @@ test.afterEach(async ({ page, context }) => {
 
 /**
  * Intercepts the Apps Script Web App POST (the Drive bridge) and replies
- * with a fake successful response.
+ * with a fake successful response. Overrides the Firebase config from
+ * firebase-config.js so the upload flow points at our mock bridge instead
+ * of the placeholder URL in the real file.
  */
 async function mockDriveBridge(page, label = 'fake') {
-  // Inject a Drive bridge URL override so the app calls a script.google.com URL
-  // (which our route below will intercept and reply with a fake success).
-  await page.addInitScript(() => {
-    window.NOTEHUB_CONFIG = {
-      driveUploadUrl: `https://script.google.com/macros/s/TEST_${Math.random().toString(36).slice(2)}/exec`,
-    };
+  // We can't override window.NOTEHUB_CONFIG.driveUploadUrl via addInitScript
+  // because firebase-config.js runs as a classic <script> after and re-sets
+  // the whole object. So we route the firebase-config.js request and inject
+  // a config that includes a working driveUploadUrl.
+  await page.route('**/firebase-config.js', async (route) => {
+    const realConfig = await route.fetch().then((r) => r.text()).catch(() => '');
+    // Parse out the real firebase block (or fall back to minimal stub).
+    const firebaseMatch = realConfig.match(/firebase:\s*\{[\s\S]*?\n\s*\}/);
+    const firebaseBlock = firebaseMatch ? firebaseMatch[0] : `firebase: { apiKey: 'placeholder' }`;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/javascript',
+      body: `window.NOTEHUB_CONFIG = {
+  ${firebaseBlock},
+  driveUploadUrl: 'https://script.google.com/macros/s/TEST_BRIDGE/exec',
+  bridgeToken: 'test_bridge_token',
+};`,
+    });
   });
   await page.route('**/script.google.com/**', async (route) => {
     if (route.request().method() === 'POST') {

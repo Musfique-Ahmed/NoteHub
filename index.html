@@ -44,6 +44,16 @@
         </div>
       </div>
 
+      <!-- Tab strip — single-page navigation between Notes / Groups / Sessions / Notifications -->
+      <nav class="margin__tabs" aria-label="Sections">
+        <button data-tab="notes"    class="margin__tab margin__tab--active">Notes</button>
+        <button data-tab="groups"   class="margin__tab">Groups</button>
+        <button data-tab="sessions" class="margin__tab">Sessions</button>
+        <button data-tab="notifs"   class="margin__tab">
+          Notifications<span class="margin__tab-count" id="notif-count" hidden>0</span>
+        </button>
+      </nav>
+
       <div class="margin__search">
         <label for="search" class="sr-only">Search notes</label>
         <div class="search">
@@ -96,19 +106,84 @@
       <!-- Auth slot, in the header so it doesn't compete with the hero -->
       <div class="auth-slot" id="auth-slot" aria-label="Account"></div>
 
-      <!-- Notes -->
-      <section class="notes">
-        <div class="notes__header">
-          <h2 class="notes__title">Notes</h2>
-          <p class="notes__sub">Pinned by anyone, listed in the order they were added.</p>
+      <!-- Notes panel -->
+      <section data-panel="notes" class="panel panel--active">
+        <div class="pinned-groups" id="pinned-groups" hidden aria-label="Pinned groups"></div>
+
+        <div class="panel__head">
+          <div>
+            <h2 class="panel__title">Notes</h2>
+            <p class="panel__sub">Pinned by anyone, listed in the order they were added.</p>
+          </div>
         </div>
 
-        <div id="notes-empty" class="notes__empty" hidden>
-          <p class="notes__empty-headline">Nothing here yet.</p>
-          <p class="notes__empty-sub">Pin the first note — even a messy one helps.</p>
+        <div id="notes-empty" class="panel__empty">
+          <p>Nothing here yet.</p>
+          <p style="margin-top:.5rem">Pin the first note — even a messy one helps.</p>
         </div>
 
         <div id="notes-grid" class="notes__grid" aria-live="polite"></div>
+      </section>
+
+      <!-- Groups panel -->
+      <section data-panel="groups" class="panel" hidden>
+        <div class="panel__head">
+          <div>
+            <h2 class="panel__title">Study groups</h2>
+            <p class="panel__sub">Open groups you can join in one click. Private groups need an invite code.</p>
+          </div>
+          <button id="create-group-btn" class="btn btn--ghost" type="button">Create group</button>
+        </div>
+
+        <div id="groups-detail"></div>
+
+        <p class="groups__heading">Your groups</p>
+        <div id="groups-mine" class="groups__grid"></div>
+
+        <p class="groups__heading">Discover open groups</p>
+        <div id="groups-directory" class="groups__grid"></div>
+
+        <div class="panel__empty" id="groups-empty" hidden>
+          <p>No open groups yet.</p>
+          <p style="margin-top:.5rem">Create one to start studying together.</p>
+        </div>
+      </section>
+
+      <!-- Sessions panel -->
+      <section data-panel="sessions" class="panel" hidden>
+        <div class="panel__head">
+          <div>
+            <h2 class="panel__title">Sessions</h2>
+            <p class="panel__sub">Scheduled study sessions across your groups.</p>
+          </div>
+        </div>
+
+        <nav class="session-filter" id="session-filter" aria-label="Time range">
+          <button class="session-filter__btn session-filter__btn--active" data-filter="upcoming" type="button">Upcoming</button>
+          <button class="session-filter__btn" data-filter="past" type="button">Past</button>
+        </nav>
+
+        <div id="sessions-list" class="sessions__list"></div>
+        <div id="sessions-empty" class="panel__empty">
+          <p>No sessions yet.</p>
+          <p style="margin-top:.5rem">Join or create a group, then schedule a study session.</p>
+        </div>
+      </section>
+
+      <!-- Notifications panel -->
+      <section data-panel="notifs" class="panel" hidden>
+        <div class="panel__head">
+          <div>
+            <h2 class="panel__title">Notifications</h2>
+            <p class="panel__sub">New sessions, comments, reactions.</p>
+          </div>
+          <button id="notifs-mark-all" class="btn btn--ghost" type="button">Mark all read</button>
+        </div>
+
+        <div id="notifs-list" class="notifications__list"></div>
+        <div id="notifs-empty" class="panel__empty">
+          <p>You're all caught up.</p>
+        </div>
       </section>
     </main>
   </div>
@@ -149,6 +224,19 @@
           <input id="up-file" name="file" type="file" accept=".pdf,.docx,.txt" required />
           <p class="field__hint">PDF, DOCX, or TXT — up to 10 MB (stored in your Drive via the bridge).</p>
         </div>
+        <fieldset class="field field--privacy">
+          <legend>Visibility</legend>
+          <label>
+            <input type="radio" name="visibility" value="public" checked />
+            Public — anyone can browse
+          </label>
+          <label>
+            <input type="radio" name="visibility" value="groups" />
+            Shared with study groups
+          </label>
+          <select id="up-groups" name="groupIds" multiple size="4" hidden aria-label="Groups to share with"></select>
+          <p class="field__hint" id="up-groups-hint" hidden>Hold Ctrl/Cmd to select multiple groups.</p>
+        </fieldset>
         <p id="upload-progress" class="form__progress" hidden></p>
         <footer class="form__footer">
           <button type="button" class="btn btn--ghost" data-close-upload>Cancel</button>
@@ -185,12 +273,170 @@
     </div>
   </div>
 
+  <!-- Profile modal -->
+  <div id="profile-modal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="profile-title">
+    <div class="modal__scrim" data-close-profile></div>
+    <div class="modal__panel modal__panel--sm">
+      <header class="modal__header">
+        <h2 id="profile-title" class="modal__title">Your profile</h2>
+        <button class="modal__close" data-close-profile aria-label="Close">×</button>
+      </header>
+      <form id="profile-form" class="form" novalidate>
+        <div class="field" style="display:flex; align-items:center; gap:0.75rem;">
+          <span id="profile-avatar-preview" class="avatar avatar--lg" aria-hidden="true"></span>
+          <span style="font: italic 400 var(--caption) var(--font-display); color: var(--fog);">
+            Avatar uses your Gravatar email if set; otherwise your initials.
+          </span>
+        </div>
+        <div class="field">
+          <label for="profile-name">Display name</label>
+          <input id="profile-name" name="displayName" type="text" maxlength="40" required placeholder="What should we call you?" />
+        </div>
+        <div class="field">
+          <label for="profile-gravatar">Gravatar email <span style="font-weight:400; color:var(--fog)">(optional)</span></label>
+          <input id="profile-gravatar" name="gravatarEmail" type="email" placeholder="you@example.com" />
+        </div>
+        <div class="field">
+          <label for="profile-bio">Bio</label>
+          <textarea id="profile-bio" name="bio" rows="3" maxlength="240" placeholder="A line or two about you."></textarea>
+        </div>
+        <p id="profile-error" class="form__error" hidden></p>
+        <footer class="form__footer">
+          <button type="button" class="btn btn--ghost" data-close-profile>Cancel</button>
+          <button type="submit" id="profile-submit" class="btn btn--primary">Save</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- Group modal -->
+  <div id="group-modal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="group-title">
+    <div class="modal__scrim" data-close-group></div>
+    <div class="modal__panel">
+      <header class="modal__header">
+        <h2 id="group-title" class="modal__title">Create study group</h2>
+        <button class="modal__close" data-close-group aria-label="Close">×</button>
+      </header>
+      <form id="group-form" class="form" novalidate>
+        <div class="field">
+          <label for="group-name">Name</label>
+          <input id="group-name" name="name" type="text" required maxlength="80" placeholder="Linear Algebra Crew" />
+        </div>
+        <div class="field field--row">
+          <div class="field">
+            <label for="group-course">Course <span style="font-weight:400; color:var(--fog)">(optional)</span></label>
+            <input id="group-course" name="coverCourse" type="text" maxlength="40" placeholder="MATH 240" />
+          </div>
+          <div class="field">
+            <label>Visibility</label>
+            <div style="display:flex; gap:1rem; padding-top:0.375rem;">
+              <label style="font-weight:500;"><input type="radio" name="visibility" value="open" checked /> Open</label>
+              <label style="font-weight:500;"><input type="radio" name="visibility" value="private" /> Private</label>
+            </div>
+          </div>
+        </div>
+        <div class="field">
+          <label for="group-desc">Description</label>
+          <textarea id="group-desc" name="description" rows="3" maxlength="400" placeholder="What's this group about?"></textarea>
+        </div>
+        <p id="group-error" class="form__error" hidden></p>
+        <footer class="form__footer">
+          <button type="button" class="btn btn--ghost" data-close-group>Cancel</button>
+          <button type="submit" id="group-submit" class="btn btn--primary">Create</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- Session modal -->
+  <div id="session-modal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="session-title">
+    <div class="modal__scrim" data-close-session></div>
+    <div class="modal__panel">
+      <header class="modal__header">
+        <h2 id="session-title" class="modal__title">Schedule a study session</h2>
+        <button class="modal__close" data-close-session aria-label="Close">×</button>
+      </header>
+      <form id="session-form" class="form" novalidate>
+        <div class="field">
+          <label for="session-name">Title</label>
+          <input id="session-name" name="title" type="text" required maxlength="80" placeholder="Chapter 4 problem set" />
+        </div>
+        <div class="field field--row">
+          <div class="field">
+            <label for="session-starts">Starts</label>
+            <input id="session-starts" name="startsAt" type="datetime-local" required />
+          </div>
+          <div class="field">
+            <label for="session-ends">Ends <span style="font-weight:400; color:var(--fog)">(optional)</span></label>
+            <input id="session-ends" name="endsAt" type="datetime-local" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="session-location">Location / link <span style="font-weight:400; color:var(--fog)">(optional)</span></label>
+          <input id="session-location" name="location" type="text" maxlength="120" placeholder="Library Rm 204 or https://meet…" />
+        </div>
+        <div class="field">
+          <label for="session-desc">Description <span style="font-weight:400; color:var(--fog)">(optional)</span></label>
+          <textarea id="session-desc" name="description" rows="3" maxlength="400" placeholder="What will you cover?"></textarea>
+        </div>
+        <p id="session-error" class="form__error" hidden></p>
+        <footer class="form__footer">
+          <button type="button" class="btn btn--ghost" data-close-session>Cancel</button>
+          <button type="submit" id="session-submit" class="btn btn--primary">Schedule</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- Invite-code redemption modal -->
+  <div id="invite-modal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="invite-title">
+    <div class="modal__scrim" data-close-invite></div>
+    <div class="modal__panel modal__panel--sm">
+      <header class="modal__header">
+        <h2 id="invite-title" class="modal__title">Join with invite code</h2>
+        <button class="modal__close" data-close-invite aria-label="Close">×</button>
+      </header>
+      <form id="invite-form" class="form" novalidate>
+        <div class="field">
+          <label for="invite-code">Invite code</label>
+          <input id="invite-code" name="code" type="text" required placeholder="NH-XXXXX" autocomplete="off" />
+        </div>
+        <p id="invite-error" class="form__error" hidden></p>
+        <footer class="form__footer">
+          <button type="button" class="btn btn--ghost" data-close-invite>Cancel</button>
+          <button type="submit" id="invite-submit" class="btn btn--primary">Join</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- Note detail drawer -->
+  <div id="note-drawer" class="drawer" hidden role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+    <div class="drawer__scrim" data-close-drawer></div>
+    <aside class="drawer__panel">
+      <header class="drawer__head">
+        <h2 id="drawer-title" class="drawer__title">Note</h2>
+        <button class="drawer__close" data-close-drawer aria-label="Close">×</button>
+      </header>
+      <div id="drawer-body" class="drawer__body"></div>
+      <form id="comment-form" class="drawer__comment-input">
+        <textarea id="comment-body" placeholder="Add a comment…" rows="1" required></textarea>
+        <button type="submit" class="btn btn--primary btn--sm">Post</button>
+      </form>
+    </aside>
+  </div>
+
   <!-- Toast — a margin note that slides in from the left -->
   <div id="toast" class="margin-note" role="status" aria-live="polite" hidden></div>
 
   <!-- Local config (gitignored). Must be loaded as a classic <script> BEFORE
        the module below, so window.NOTEHUB_CONFIG is defined when the module runs. -->
   <script src="./firebase-config.js"></script>
+
+  <!-- MD5 (for Gravatar hashes). Loaded as a classic script; window.md5 used
+       inside the module. If this 404s, the app falls back to initials avatars. -->
+  <script src="https://cdn.jsdelivr.net/npm/js-md5@0.8.3/build/md5.min.js"
+          crossorigin="anonymous"></script>
 
   <script type="module">
     // -------------------------------------------------------------------
@@ -216,15 +462,26 @@
       signInWithEmailAndPassword,
       signOut,
       onAuthStateChanged,
+      updateProfile,
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
     import {
       getFirestore,
       collection,
+      doc,
       query,
+      where,
       orderBy,
+      limit,
       onSnapshot,
+      getDoc,
+      getDocs,
+      setDoc,
       addDoc,
+      updateDoc,
+      deleteDoc,
       serverTimestamp,
+      arrayUnion,
+      increment,
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const app = initializeApp(firebaseConfig);
@@ -232,47 +489,63 @@
     const db = getFirestore(app);
 
     // -------------------------------------------------------------------
-    // Google Drive upload bridge (free tier, no Firebase Storage needed)
-    //
-    // Deploy the Apps Script in drive-upload.gs as a Web App
-    // (Execute as: Me / Anyone) and paste the resulting URL below.
-    // The script uploads the file to your Drive, shares it as
-    // "anyone with the link can view", and returns JSON
-    // { id, name, mimeType, size, webViewLink }.
+    // Drive bridge config (from gitignored firebase-config.js)
     // -------------------------------------------------------------------
     const DRIVE_UPLOAD_URL =
-      (typeof window !== "undefined" && window.NOTEHUB_CONFIG && window.NOTEHUB_CONFIG.driveUploadUrl) ||
+      (NOTEHUB_CONFIG && NOTEHUB_CONFIG.driveUploadUrl) ||
       "PASTE_YOUR_APPS_SCRIPT_DEPLOYMENT_URL_HERE";
+    const BRIDGE_TOKEN =
+      (NOTEHUB_CONFIG && NOTEHUB_CONFIG.bridgeToken) || "";
     const DRIVE_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
     // -------------------------------------------------------------------
-    // State
+    // State (single bag; survives across re-renders)
     // -------------------------------------------------------------------
-    let allNotes = [];
-    let searchQuery = "";
-    let authMode = "login"; // or "register"
-    let currentUser = null;
+    const state = {
+      auth: { user: null, mode: "login" },
+      ui:   { tab: "notes", modal: null, drawerNoteId: null, groupFilter: null, sessionFilter: "upcoming" },
+      data: {
+        allNotes: [], myGroups: [], allGroups: [],
+        sessionsByGroup: new Map(), attendeesBySession: new Map(),
+        myNotifs: [], commentsByNote: new Map(), reactionsByNote: new Map(),
+        myProfile: null,
+      },
+      prefs: { lastTab: localStorage.getItem("notehub.tab") || "notes" },
+    };
 
     // -------------------------------------------------------------------
     // DOM refs
     // -------------------------------------------------------------------
-    const authSlot        = document.getElementById("auth-slot");
-    const shareFab        = document.getElementById("share-fab");
-    const notesGrid       = document.getElementById("notes-grid");
-    const notesEmpty      = document.getElementById("notes-empty");
-    const notesCount      = document.getElementById("notes-count");
-    const searchInput     = document.getElementById("search");
-    const uploadModal     = document.getElementById("upload-modal");
-    const authModal       = document.getElementById("auth-modal");
-    const authTitle       = document.getElementById("auth-title");
-    const authToggle      = document.getElementById("auth-toggle");
-    const authSubmit      = document.getElementById("auth-submit");
-    const authForm        = document.getElementById("auth-form");
-    const authError       = document.getElementById("auth-error");
-    const uploadForm      = document.getElementById("upload-form");
-    const uploadProgress  = document.getElementById("upload-progress");
-    const uploadSubmit    = document.getElementById("upload-submit");
-    const toast           = document.getElementById("toast");
+    const $ = (sel, root = document) => root.querySelector(sel);
+    const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+    const on = (el, ev, fn) => el && el.addEventListener(ev, fn);
+
+    const authSlot        = $("#auth-slot");
+    const shareFab        = $("#share-fab");
+    const notesGrid       = $("#notes-grid");
+    const notesEmpty      = $("#notes-empty");
+    const notesCount      = $("#notes-count");
+    const searchInput     = $("#search");
+    const uploadModal     = $("#upload-modal");
+    const authModal       = $("#auth-modal");
+    const profileModal    = $("#profile-modal");
+    const groupModal      = $("#group-modal");
+    const sessionModal    = $("#session-modal");
+    const inviteModal     = $("#invite-modal");
+    const noteDrawer      = $("#note-drawer");
+    const authTitle       = $("#auth-title");
+    const authToggle      = $("#auth-toggle");
+    const authSubmit      = $("#auth-submit");
+    const authForm        = $("#auth-form");
+    const authError       = $("#auth-error");
+    const uploadForm      = $("#upload-form");
+    const uploadProgress  = $("#upload-progress");
+    const uploadSubmit    = $("#upload-submit");
+    const groupForm       = $("#group-form");
+    const sessionForm     = $("#session-form");
+    const inviteForm      = $("#invite-form");
+    const toast           = $("#toast");
+    const notifCountBadge = $("#notif-count");
 
     // -------------------------------------------------------------------
     // Date stamp (signature element)
@@ -282,10 +555,10 @@
       const months = ["january","february","march","april","may","june","july","august","september","october","november","december"];
       const days   = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
       const roman  = ["i","ii","iii","iv","v","vi","vii","viii","ix","x","xi","xii"];
-      document.getElementById("ds-month").textContent   = months[now.getMonth()];
-      document.getElementById("ds-day").textContent     = String(now.getDate());
-      document.getElementById("ds-weekday").textContent = days[now.getDay()];
-      document.querySelector(".date-stamp__vol").textContent = `vol. ${roman[now.getMonth()]}`;
+      $("#ds-month").textContent   = months[now.getMonth()];
+      $("#ds-day").textContent     = String(now.getDate());
+      $("#ds-weekday").textContent = days[now.getDay()];
+      $(".date-stamp__vol").textContent = `vol. ${roman[now.getMonth()]}`;
     })();
 
     // -------------------------------------------------------------------
@@ -303,10 +576,10 @@
     }
 
     function showSetupBanner(message, nextStep) {
-      const banner = document.getElementById("setup-banner");
-      const msg = document.getElementById("setup-banner-msg");
-      const projectIdEl = document.getElementById("setup-project-id");
-      const link = document.getElementById("setup-console-link");
+      const banner = $("#setup-banner");
+      const msg = $("#setup-banner-msg");
+      const projectIdEl = $("#setup-project-id");
+      const link = $("#setup-console-link");
       msg.textContent = ` ${message}${nextStep ? ` Next step: ${nextStep}.` : ""}`;
       projectIdEl.textContent = firebaseConfig.projectId || "(unknown)";
       link.href = `https://console.firebase.google.com/project/${firebaseConfig.projectId}/overview`;
@@ -320,8 +593,8 @@
       return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     }
 
-    function openModal(el)  { el.hidden = false; }
-    function closeModal(el) { el.hidden = true; }
+    function openModal(el)  { if (el) el.hidden = false; }
+    function closeModal(el) { if (el) el.hidden = true; }
 
     function escapeHTML(s) {
       return String(s ?? "").replace(/[&<>"']/g, (c) => ({
@@ -334,34 +607,138 @@
       return s ? s[0].toUpperCase() : "?";
     }
 
+    function debounce(fn, ms = 200) {
+      let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+    }
+
+    function gravatarURL(email, size = 80) {
+      if (!email) return null;
+      const md5 = (typeof window !== "undefined" && window.md5) ? window.md5 : null;
+      if (!md5) return null;
+      const hash = md5(String(email).trim().toLowerCase());
+      return `https://www.gravatar.com/avatar/${hash}?d=identicon&s=${size}`;
+    }
+
+    function avatarHTML({ name, email, size = "regular" }) {
+      const cls = size === "lg" ? "avatar avatar--lg" : "avatar";
+      const url = gravatarURL(email);
+      if (url) return `<span class="${cls}"><img src="${url}" alt="" loading="lazy" /></span>`;
+      return `<span class="${cls}" title="${escapeHTML(name || "")}">${escapeHTML(initialOf(name || email))}</span>`;
+    }
+
+    function timeAgo(ts) {
+      if (!ts) return "";
+      const ms = Date.now() - (ts.seconds ? ts.seconds * 1000 : Date.parse(ts));
+      const s = Math.max(1, Math.floor(ms / 1000));
+      if (s < 60)        return `${s}s ago`;
+      if (s < 3600)      return `${Math.floor(s/60)}m ago`;
+      if (s < 86400)     return `${Math.floor(s/3600)}h ago`;
+      if (s < 7*86400)   return `${Math.floor(s/86400)}d ago`;
+      const d = new Date(ts.seconds * 1000);
+      return d.toLocaleDateString();
+    }
+
+    function fmtDateTime(dt) {
+      if (!dt) return "";
+      const d = dt.seconds ? new Date(dt.seconds * 1000) : new Date(dt);
+      return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    }
+
+    function fmtDateChip(dt) {
+      if (!dt) return "";
+      const d = dt.seconds ? new Date(dt.seconds * 1000) : new Date(dt);
+      return {
+        month: d.toLocaleString(undefined, { month: "short" }).toUpperCase(),
+        day: d.getDate(),
+      };
+    }
+
+    function randomCode(prefix = "NH") {
+      const alpha = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      let s = "";
+      for (let i = 0; i < 5; i++) s += alpha[Math.floor(Math.random() * alpha.length)];
+      return `${prefix}-${s}`;
+    }
+
+    function isNoteVisible(note) {
+      if (!note) return false;
+      const vis = note.visibility || "public";
+      if (vis !== "groups") return true;
+      if (!state.auth.user) return false;
+      const ids = Array.isArray(note.groupIds) ? note.groupIds : [];
+      return state.data.myGroups.some((g) => ids.includes(g.id));
+    }
+
+    // -------------------------------------------------------------------
+    // POST to the Apps Script Web App (action-based router)
+    // -------------------------------------------------------------------
+    async function postToBridge(payload) {
+      const res = await fetch(DRIVE_UPLOAD_URL, {
+        method: "POST",
+        body: JSON.stringify({ ...payload, token: BRIDGE_TOKEN || undefined }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.error) {
+        const msg = json.error || `HTTP ${res.status}`;
+        const err = new Error(msg);
+        err.status = res.status;
+        throw err;
+      }
+      return json;
+    }
+
+    // -------------------------------------------------------------------
+    // File → base64
+    // -------------------------------------------------------------------
+    function fileToBase64(file, onProgress) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(reader.error || new Error("FileReader error"));
+        reader.onprogress = (e) => {
+          if (e.lengthComputable && typeof onProgress === "function") {
+            onProgress(Math.round((e.loaded / e.total) * 100));
+          }
+        };
+        reader.onload = () => {
+          const result = reader.result || "";
+          const idx = result.indexOf(",");
+          resolve(idx >= 0 ? result.slice(idx + 1) : result);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
     // -------------------------------------------------------------------
     // Auth UI
     // -------------------------------------------------------------------
     function renderAuthSlot(user) {
-      currentUser = user;
+      state.auth.user = user;
       if (user) {
+        const displayName = (state.data.myProfile && state.data.myProfile.displayName) || user.email;
         authSlot.innerHTML = `
-          <span class="auth-slot__email">${escapeHTML(user.email)}</span>
+          <span class="auth-slot__email">${escapeHTML(displayName)}</span>
+          <button id="profile-btn" class="btn btn--ghost btn--sm" type="button">Profile</button>
           <button id="logout-btn" class="btn btn--ghost btn--sm" type="button">Sign out</button>
         `;
-        document.getElementById("logout-btn").addEventListener("click", async () => {
+        on($("#logout-btn"), "click", async () => {
           try { await signOut(auth); showToast("Signed out."); }
           catch (e) { showToast(e.message); }
         });
+        on($("#profile-btn"), "click", openProfileModal);
         shareFab.hidden = false;
       } else {
         authSlot.innerHTML = `
           <button id="login-btn" class="btn btn--ghost btn--sm" type="button">Sign in</button>
           <button id="register-btn" class="btn btn--primary btn--sm" type="button">Register</button>
         `;
-        document.getElementById("login-btn").addEventListener("click", () => openAuthModal("login"));
-        document.getElementById("register-btn").addEventListener("click", () => openAuthModal("register"));
+        on($("#login-btn"),    "click", () => openAuthModal("login"));
+        on($("#register-btn"), "click", () => openAuthModal("register"));
         shareFab.hidden = true;
       }
     }
 
     function openAuthModal(mode) {
-      authMode = mode;
+      state.auth.mode = mode;
       authError.hidden = true;
       authError.textContent = "";
       if (mode === "login") {
@@ -374,21 +751,22 @@
         authToggle.textContent = "Already have an account? Sign in";
       }
       openModal(authModal);
-      setTimeout(() => document.getElementById("auth-email").focus(), 50);
+      setTimeout(() => $("#auth-email").focus(), 50);
     }
 
-    authToggle.addEventListener("click", () => {
-      openAuthModal(authMode === "login" ? "register" : "login");
+    on(authToggle, "click", () => {
+      openAuthModal(state.auth.mode === "login" ? "register" : "login");
     });
 
-    authForm.addEventListener("submit", async (e) => {
+    on(authForm, "submit", async (e) => {
       e.preventDefault();
       authError.hidden = true;
       const email = authForm.email.value.trim();
       const password = authForm.password.value;
       try {
-        if (authMode === "register") {
-          await createUserWithEmailAndPassword(auth, email, password);
+        if (state.auth.mode === "register") {
+          const cred = await createUserWithEmailAndPassword(auth, email, password);
+          await ensureUserDoc_(cred.user);
           showToast("Account created. Welcome to the library.");
         } else {
           await signInWithEmailAndPassword(auth, email, password);
@@ -398,7 +776,7 @@
         authForm.reset();
       } catch (err) {
         const code = err.code || "";
-        const msg = err.message.replace("Firebase:", "").trim();
+        const msg = (err.message || "").replace("Firebase:", "").trim();
         authError.textContent = msg;
         authError.hidden = false;
         if (code === "auth/configuration-not-found" || /CONFIGURATION_NOT_FOUND/i.test(msg)) {
@@ -410,40 +788,68 @@
       }
     });
 
-    document.querySelectorAll("[data-close-auth]").forEach(el =>
-      el.addEventListener("click", () => closeModal(authModal))
-    );
+    $$("[data-close-auth]").forEach((el) => on(el, "click", () => closeModal(authModal)));
 
-    // Close any open modal on Escape
-    document.addEventListener("keydown", (e) => {
-      if (e.key !== "Escape") return;
-      if (!uploadModal.hidden) closeModal(uploadModal);
-      if (!authModal.hidden)   closeModal(authModal);
-    });
+    // -------------------------------------------------------------------
+    // Tabs
+    // -------------------------------------------------------------------
+    function setActiveTab(name) {
+      state.ui.tab = name;
+      state.prefs.lastTab = name;
+      localStorage.setItem("notehub.tab", name);
+      $$(".margin__tab").forEach((b) => {
+        b.classList.toggle("margin__tab--active", b.dataset.tab === name);
+      });
+      $$(".panel").forEach((p) => {
+        const active = p.dataset.panel === name;
+        p.classList.toggle("panel--active", active);
+        p.hidden = !active;
+      });
+      // Lazy-load data when the tab is first opened
+      if (name === "groups"   && !state.ui.groupFilter) subscribeGroups_();
+      if (name === "sessions" && !state.data.sessionsByGroup.size) subscribeAllSessions_();
+      if (name === "notifs"   && !notifsUnsubscribe_) subscribeNotifs_();
+    }
+
+    $$(".margin__tab").forEach((b) => on(b, "click", () => setActiveTab(b.dataset.tab)));
 
     // -------------------------------------------------------------------
     // Upload modal
     // -------------------------------------------------------------------
-    shareFab.addEventListener("click", () => {
-      if (!currentUser) {
+    on(shareFab, "click", () => {
+      if (!state.auth.user) {
         showToast("Sign in first to pin a note.");
         openAuthModal("login");
         return;
       }
+      // Populate the groups-select with the user's groups
+      const sel = $("#up-groups");
+      sel.innerHTML = state.data.myGroups
+        .map((g) => `<option value="${escapeHTML(g.id)}">${escapeHTML(g.name)}</option>`)
+        .join("");
       openModal(uploadModal);
-      setTimeout(() => document.getElementById("up-title").focus(), 50);
+      setTimeout(() => $("#up-title").focus(), 50);
     });
 
-    document.querySelectorAll("[data-close-upload]").forEach(el =>
-      el.addEventListener("click", () => {
-        closeModal(uploadModal);
-        uploadForm.reset();
-        uploadProgress.hidden = true;
-        uploadProgress.textContent = "";
-      })
-    );
+    $$("[data-close-upload]").forEach((el) => on(el, "click", () => {
+      closeModal(uploadModal);
+      uploadForm.reset();
+      $("#up-groups").hidden = true;
+      $("#up-groups-hint").hidden = true;
+      uploadProgress.hidden = true;
+      uploadProgress.textContent = "";
+    }));
 
-    uploadForm.addEventListener("submit", async (e) => {
+    // Toggle the groups-select when the privacy radio flips to 'groups'
+    on($("#upload-form"), "change", (e) => {
+      if (e.target && e.target.name === "visibility") {
+        const showGroups = e.target.value === "groups";
+        $("#up-groups").hidden = !showGroups;
+        $("#up-groups-hint").hidden = !showGroups;
+      }
+    });
+
+    on(uploadForm, "submit", async (e) => {
       e.preventDefault();
       const user = auth.currentUser;
       if (!user) { showToast("Sign in first to pin a note."); return; }
@@ -453,12 +859,22 @@
       const creator = fd.get("creator").toString().trim();
       const course  = fd.get("course").toString().trim();
       const file    = fd.get("file");
+      const visibility = fd.get("visibility");
+      const groupIds   = fd.getAll("groupIds");
       if (!file || !file.name) { showToast("Choose a file."); return; }
+      if (visibility === "groups" && groupIds.length === 0) {
+        showToast("Pick at least one group to share with.");
+        return;
+      }
+      if (groupIds.length > 10) {
+        showToast("A note can be shared with up to 10 groups.");
+        return;
+      }
 
       if (!DRIVE_UPLOAD_URL || DRIVE_UPLOAD_URL.startsWith("PASTE_")) {
         showSetupBanner(
           "Google Drive upload bridge is not configured yet.",
-          "Deploy drive-upload.gs as a Web App, then paste the URL into DRIVE_UPLOAD_URL near the top of this file"
+          "Deploy drive-upload.gs as a Web App, then paste the URL into firebase-config.js → driveUploadUrl"
         );
         return;
       }
@@ -485,10 +901,10 @@
       }
 
       uploadProgress.textContent = "Uploading to Drive…";
-
       let driveResult;
       try {
-        driveResult = await postToDriveBridge({
+        driveResult = await postToBridge({
+          action: "upload",
           filename: file.name,
           mimeType: file.type || "application/octet-stream",
           bytes: base64,
@@ -502,12 +918,9 @@
       }
 
       const downloadURL = `https://drive.google.com/uc?export=download&id=${driveResult.id}`;
-
       try {
         await addDoc(collection(db, "notes"), {
-          title,
-          creator,
-          course,
+          title, creator, course,
           fileName: driveResult.name || file.name,
           fileType: driveResult.mimeType || file.type || "",
           size: driveResult.size || file.size,
@@ -516,12 +929,16 @@
           uploadedBy: user.uid,
           uploaderEmail: user.email || "",
           uploadedAt: serverTimestamp(),
+          visibility,
+          groupIds: visibility === "groups" ? groupIds : [],
         });
         uploadProgress.textContent = "Pinned.";
         showToast("Note pinned to the library.");
         setTimeout(() => {
           closeModal(uploadModal);
           uploadForm.reset();
+          $("#up-groups").hidden = true;
+          $("#up-groups-hint").hidden = true;
           uploadProgress.hidden = true;
           uploadProgress.textContent = "";
           uploadSubmit.disabled = false;
@@ -535,80 +952,69 @@
     });
 
     // -------------------------------------------------------------------
-    // File → base64 (with progress callback for files in memory)
-    // -------------------------------------------------------------------
-    function fileToBase64(file, onProgress) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onerror = () => reject(reader.error || new Error("FileReader error"));
-        reader.onprogress = (e) => {
-          if (e.lengthComputable && typeof onProgress === "function") {
-            onProgress(Math.round((e.loaded / e.total) * 100));
-          }
-        };
-        reader.onload = () => {
-          // result is "data:<mime>;base64,XXXX" — keep only XXXX
-          const result = reader.result || "";
-          const idx = result.indexOf(",");
-          resolve(idx >= 0 ? result.slice(idx + 1) : result);
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-
-    // -------------------------------------------------------------------
-    // POST a file (as base64 JSON) to the Apps Script Web App
-    // -------------------------------------------------------------------
-    async function postToDriveBridge({ filename, mimeType, bytes }) {
-      const res = await fetch(DRIVE_UPLOAD_URL, {
-        method: "POST",
-        // No custom headers → no preflight, Apps Script accepts JSON natively.
-        body: JSON.stringify({ filename, mimeType, bytes }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json().catch(() => ({}));
-      if (json.error) throw new Error(json.error);
-      if (!json.id) throw new Error("Drive did not return a file id");
-      return json;
-    }
-
-    // -------------------------------------------------------------------
     // Notes feed (real-time)
     // -------------------------------------------------------------------
-    const notesQuery = query(collection(db, "notes"), orderBy("uploadedAt", "desc"));
-
-    onSnapshot(notesQuery, (snap) => {
-      allNotes = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      renderNotes();
-    }, (err) => {
-      console.error("notes snapshot error", err);
-      const code = err.code || "";
-      if (/permission-denied/i.test(code) || /permission/i.test(err.message)) {
-        showSetupBanner(
-          "Firestore denied access to the 'notes' collection.",
-          "Firestore → Rules → paste the rules from the bottom of this file"
-        );
-      } else if (/unavailable|internal/i.test(code)) {
-        showSetupBanner(
-          "Couldn't reach Firestore.",
-          "Confirm Firestore is created in the Firebase Console"
-        );
-      } else {
-        showToast("Couldn't load notes.");
-      }
-    });
+    let notesUnsubscribe_ = null;
+    function subscribeNotes_() {
+      if (notesUnsubscribe_) return;
+      notesUnsubscribe_ = onSnapshot(
+        query(collection(db, "notes"), orderBy("uploadedAt", "desc")),
+        (snap) => {
+          state.data.allNotes = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          renderNotes();
+        },
+        (err) => {
+          console.error("notes snapshot error", err);
+          const code = err.code || "";
+          if (/permission-denied/i.test(code) || /permission/i.test(err.message)) {
+            showSetupBanner(
+              "Firestore denied access to the 'notes' collection.",
+              "Firestore → Rules → paste the rules from the bottom of this file"
+            );
+          } else if (/unavailable|internal/i.test(code)) {
+            showSetupBanner(
+              "Couldn't reach Firestore.",
+              "Confirm Firestore is created in the Firebase Console"
+            );
+          } else {
+            showToast("Couldn't load notes.");
+          }
+        }
+      );
+    }
 
     function renderNotes() {
-      const q = searchQuery.trim().toLowerCase();
+      const q = searchInput.value.trim().toLowerCase();
+      const visible = state.data.allNotes.filter(isNoteVisible);
       const filtered = q
-        ? allNotes.filter((n) =>
-            [n.title, n.creator, n.course]
+        ? visible.filter((n) =>
+            [n.title, n.creator, n.course, n.uploaderEmail]
               .filter(Boolean)
               .some((f) => f.toLowerCase().includes(q))
           )
-        : allNotes;
+        : visible;
 
-      notesCount.textContent = String(allNotes.length);
+      // "Pinned groups" mini-list (if user is in any group)
+      const pinned = state.data.myGroups.slice(0, 8);
+      const pg = $("#pinned-groups");
+      if (state.auth.user && pinned.length) {
+        pg.hidden = false;
+        pg.innerHTML = pinned
+          .map((g) => `
+            <button class="pinned-group" data-gid="${escapeHTML(g.id)}" type="button">
+              ${escapeHTML(g.name)}
+              <span class="pinned-group__sub">${g.visibility === "private" ? "private" : "open"} · ${g.memberCount || 1}</span>
+            </button>`)
+          .join("");
+        pg.querySelectorAll("[data-gid]").forEach((btn) => on(btn, "click", () => {
+          setActiveTab("groups");
+          openGroupDetail_(btn.dataset.gid);
+        }));
+      } else {
+        pg.hidden = true;
+      }
+
+      if (notesCount) notesCount.textContent = String(state.data.allNotes.length);
 
       if (filtered.length === 0) {
         notesGrid.innerHTML = "";
@@ -617,63 +1023,972 @@
       }
       notesEmpty.hidden = true;
       notesGrid.innerHTML = filtered.map(noteCardHTML).join("");
-      notesGrid.querySelectorAll("[data-download]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const url = btn.getAttribute("data-url");
-          const name = btn.getAttribute("data-name");
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = name || "";
-          a.target = "_blank";
-          a.rel = "noopener";
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-        });
-      });
+      notesGrid.querySelectorAll("[data-download]").forEach((btn) => on(btn, "click", () => {
+        const url = btn.getAttribute("data-url");
+        const name = btn.getAttribute("data-name");
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = name || "";
+        a.target = "_blank";
+        a.rel = "noopener";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }));
+      notesGrid.querySelectorAll("[data-open-note]").forEach((btn) => on(btn, "click", (ev) => {
+        ev.preventDefault();
+        openNoteDrawer(btn.dataset.openNote);
+      }));
     }
 
     function noteCardHTML(n) {
       const size = formatSize(n.size);
       const monoSize = size ? `<span class="note__size">${size}</span>` : "";
-      const course = n.course ? escapeHTML(n.course) : "";
-      const creator = n.creator ? escapeHTML(n.creator) : "Anonymous";
+      const course = n.course ? `<span class="note__course">${escapeHTML(n.course)}</span>` : "";
+      const creator = n.creator ? escapeHTML(n.creator) : (n.uploaderEmail ? escapeHTML(n.uploaderEmail) : "Anonymous");
+      const vis = n.visibility === "groups"
+        ? `<span class="note__course" title="Shared with selected groups only">group-only</span>`
+        : "";
       return `
         <article class="note">
           <span class="note__tape" aria-hidden="true"></span>
-          ${course ? `<span class="note__course">${course}</span>` : ""}
+          ${course}${vis}
           <h3 class="note__title" title="${escapeHTML(n.title)}">${escapeHTML(n.title)}</h3>
           <p class="note__creator">${creator}</p>
-          <div class="note__foot">
-            ${monoSize}
+          <div class="note__foot">${monoSize}</div>
+          <div style="display:flex; gap:0.375rem; margin-top:0.5rem;">
+            <button class="btn btn--ink note__download" type="button"
+              data-download data-url="${escapeHTML(n.downloadURL || "")}" data-name="${escapeHTML(n.fileName || "download")}">Download</button>
+            <button class="btn btn--ghost btn--sm" type="button" data-open-note="${escapeHTML(n.id)}">Open</button>
           </div>
-          <button
-            class="btn btn--ink note__download"
-            type="button"
-            data-download
-            data-url="${escapeHTML(n.downloadURL || "")}"
-            data-name="${escapeHTML(n.fileName || "download")}"
-          >
-            Download
-          </button>
         </article>
       `;
     }
 
+    on(searchInput, "input", debounce(() => renderNotes(), 120));
+
     // -------------------------------------------------------------------
-    // Search
+    // Note drawer (detail, comments, reactions)
     // -------------------------------------------------------------------
-    searchInput.addEventListener("input", (e) => {
-      searchQuery = e.target.value;
-      renderNotes();
+    let commentsUnsub_ = null;
+    let reactionsUnsub_ = null;
+    function openNoteDrawer(noteId) {
+      const note = state.data.allNotes.find((n) => n.id === noteId);
+      if (!note) return;
+      state.ui.drawerNoteId = noteId;
+      openModal(noteDrawer);
+      $("#drawer-title").textContent = note.title || "Note";
+      renderDrawerBody_(note);
+      // subscribe to comments + reactions
+      if (commentsUnsub_) commentsUnsub_();
+      commentsUnsub_ = onSnapshot(
+        query(collection(db, "notes", noteId, "comments"), orderBy("createdAt", "asc")),
+        (snap) => {
+          state.data.commentsByNote.set(noteId, snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+          renderDrawerBody_(note);
+        },
+        (err) => console.warn("comments sub", err)
+      );
+      if (reactionsUnsub_) reactionsUnsub_();
+      reactionsUnsub_ = onSnapshot(
+        collection(db, "notes", noteId, "reactions"),
+        (snap) => {
+          state.data.reactionsByNote.set(noteId, snap.docs.map((d) => ({ uid: d.id, ...d.data() })));
+          renderDrawerBody_(note);
+        },
+        (err) => console.warn("reactions sub", err)
+      );
+    }
+
+    function closeNoteDrawer_() {
+      closeModal(noteDrawer);
+      state.ui.drawerNoteId = null;
+      if (commentsUnsub_) { commentsUnsub_(); commentsUnsub_ = null; }
+      if (reactionsUnsub_) { reactionsUnsub_(); reactionsUnsub_ = null; }
+    }
+
+    $$("[data-close-drawer]").forEach((el) => on(el, "click", closeNoteDrawer_));
+
+    function renderDrawerBody_(note) {
+      const comments = state.data.commentsByNote.get(note.id) || [];
+      const reactions = state.data.reactionsByNote.get(note.id) || [];
+      const uids = new Set(reactions.map((r) => r.uid));
+      const myReacted = state.auth.user && uids.has(state.auth.user.uid);
+      const creatorName = note.creator || note.uploaderEmail || "Anonymous";
+      const course = note.course ? `<span class="note__course">${escapeHTML(note.course)}</span>` : "";
+      const desc = note.description ? `<p style="font: italic 400 0.9375rem var(--font-display); color: var(--ink-soft);">${escapeHTML(note.description)}</p>` : "";
+      const meta = `${course}
+        <p class="note__creator">${escapeHTML(creatorName)} · ${formatSize(note.size) || "—"} · ${timeAgo(note.uploadedAt)}</p>`;
+
+      const reactHTML = `
+        <div class="reactions" id="reactions-row">
+          <button class="reaction-pill ${myReacted ? "reaction-pill--active" : ""}" type="button" data-react>
+            ▲ <span class="reaction-pill__count">${reactions.length}</span> upvote
+          </button>
+        </div>`;
+
+      const commentsHTML = renderCommentsThread_(comments);
+
+      $("#drawer-body").innerHTML = `
+        <h3 style="margin:0 0 0.25rem; font: 700 1.25rem var(--font-display); color: var(--ink);">${escapeHTML(note.title)}</h3>
+        ${meta}
+        ${desc}
+        <div style="margin: 0.75rem 0 1rem;">${reactHTML}</div>
+        ${commentsHTML}
+      `;
+      const rb = $("#reactions-row [data-react]");
+      if (rb) on(rb, "click", () => toggleReaction_(note.id));
+      $("#drawer-body [data-reply-to]").forEach((btn) => on(btn, "click", () => {
+        const parentId = btn.dataset.replyTo;
+        $("#comment-body").dataset.parentId = parentId;
+        $("#comment-body").focus();
+      }));
+    }
+
+    function renderCommentsThread_(comments) {
+      if (!comments.length) {
+        return `<div class="comments"><p style="font: italic 400 var(--caption) var(--font-display); color: var(--fog);">No comments yet. Be the first.</p></div>`;
+      }
+      const topLevel = comments.filter((c) => !c.parentId);
+      const byParent = new Map();
+      comments.forEach((c) => {
+        if (c.parentId) {
+          if (!byParent.has(c.parentId)) byParent.set(c.parentId, []);
+          byParent.get(c.parentId).push(c);
+        }
+      });
+      const renderComment = (c, isReply = false) => `
+        <div class="comment ${isReply ? "comment--reply" : ""}">
+          ${avatarHTML({ name: c.authorName, email: c.authorEmail || "" })}
+          <div>
+            <div class="comment__head">
+              <span class="comment__author">${escapeHTML(c.authorName || "Anonymous")}</span>
+              <span class="comment__when">${timeAgo(c.createdAt)}</span>
+            </div>
+            <div class="comment__body">${escapeHTML(c.body)}</div>
+            ${!isReply ? `<button type="button" class="comment__reply" data-reply-to="${escapeHTML(c.id)}">Reply</button>` : ""}
+          </div>
+        </div>`;
+      return `<div class="comments">
+        ${topLevel.map((c) => renderComment(c, false) +
+          (byParent.get(c.id) || []).map((r) => renderComment(r, true)).join("")).join("")}
+      </div>`;
+    }
+
+    on($("#comment-form"), "submit", async (e) => {
+      e.preventDefault();
+      const noteId = state.ui.drawerNoteId;
+      const user = auth.currentUser;
+      if (!noteId || !user) return;
+      const body = $("#comment-body").value.trim();
+      if (!body) return;
+      const parentId = $("#comment-body").dataset.parentId || null;
+      delete $("#comment-body").dataset.parentId;
+      try {
+        await addDoc(collection(db, "notes", noteId, "comments"), {
+          authorUid: user.uid,
+          authorEmail: user.email || "",
+          authorName: (state.data.myProfile && state.data.myProfile.displayName) || (user.email || "Anonymous"),
+          authorInitials: (state.data.myProfile && state.data.myProfile.initials) || initialOf(user.email),
+          body,
+          parentId,
+          createdAt: serverTimestamp(),
+        });
+        $("#comment-body").value = "";
+        // Notify the note's owner
+        const note = state.data.allNotes.find((n) => n.id === noteId);
+        if (note && note.uploadedBy && note.uploadedBy !== user.uid) {
+          await writeNotification_({
+            uid: note.uploadedBy,
+            type: "comment",
+            noteId,
+            actorUid: user.uid,
+            message: `${(state.data.myProfile && state.data.myProfile.displayName) || user.email} commented on “${note.title}”`,
+          });
+        }
+      } catch (err) {
+        showToast("Couldn't post comment: " + err.message);
+      }
+    });
+
+    async function toggleReaction_(noteId) {
+      const user = auth.currentUser;
+      if (!user) { openAuthModal("login"); return; }
+      const ref = doc(db, "notes", noteId, "reactions", user.uid);
+      const existing = await getDoc(ref).catch(() => null);
+      try {
+        if (existing && existing.exists()) {
+          await deleteDoc(ref);
+        } else {
+          await setDoc(ref, { kind: "up", createdAt: serverTimestamp() });
+          // Notify the note's owner (once per reaction)
+          const note = state.data.allNotes.find((n) => n.id === noteId);
+          if (note && note.uploadedBy && note.uploadedBy !== user.uid) {
+            await writeNotification_({
+              uid: note.uploadedBy,
+              type: "reaction",
+              noteId,
+              actorUid: user.uid,
+              message: `${(state.data.myProfile && state.data.myProfile.displayName) || user.email} upvoted “${note.title}”`,
+            });
+          }
+        }
+      } catch (err) {
+        showToast("Couldn't react: " + err.message);
+      }
+    }
+
+    // -------------------------------------------------------------------
+    // Profile modal
+    // -------------------------------------------------------------------
+    function openProfileModal() {
+      const user = auth.currentUser;
+      if (!user) return;
+      const p = state.data.myProfile || {};
+      $("#profile-name").value = p.displayName || (user.displayName || "");
+      $("#profile-gravatar").value = p.gravatarEmail || user.email || "";
+      $("#profile-bio").value = p.bio || "";
+      updateProfilePreview_();
+      on($("#profile-name"), "input", updateProfilePreview_);
+      on($("#profile-gravatar"), "input", updateProfilePreview_);
+      $("#profile-error").hidden = true;
+      openModal(profileModal);
+    }
+
+    function updateProfilePreview_() {
+      const name = $("#profile-name").value || "";
+      const email = $("#profile-gravatar").value || "";
+      $("#profile-avatar-preview").outerHTML = avatarHTML({ name, email, size: "lg" });
+    }
+
+    $$("[data-close-profile]").forEach((el) => on(el, "click", () => closeModal(profileModal)));
+
+    on($("#profile-form"), "submit", async (e) => {
+      e.preventDefault();
+      const user = auth.currentUser;
+      if (!user) return;
+      const displayName  = $("#profile-name").value.trim();
+      const gravatarEmail = $("#profile-gravatar").value.trim();
+      const bio          = $("#profile-bio").value.trim();
+      const initials     = initialOf(displayName || gravatarEmail);
+      $("#profile-error").hidden = true;
+      try {
+        const photoURL = gravatarURL(gravatarEmail) || (user.photoURL || "");
+        await updateProfile(user, { displayName, photoURL });
+        await setDoc(doc(db, "users", user.uid), {
+          displayName, gravatarEmail, bio,
+          initials, email: user.email || "",
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+        state.data.myProfile = { ...(state.data.myProfile || {}), displayName, gravatarEmail, bio, initials, email: user.email || "" };
+        showToast("Profile saved.");
+        renderAuthSlot(user);
+        closeModal(profileModal);
+      } catch (err) {
+        $("#profile-error").textContent = err.message;
+        $("#profile-error").hidden = false;
+      }
     });
 
     // -------------------------------------------------------------------
-    // Auth state
+    // Groups
     // -------------------------------------------------------------------
-    onAuthStateChanged(auth, (user) => {
-      renderAuthSlot(user);
+    let myGroupsUnsub_ = null, directoryUnsub_ = null;
+    function subscribeGroups_() {
+      if (!state.auth.user) return;
+      // The user's groups are determined by membership docs in
+      // /groups/{gid}/members/{uid}. We watch the top-level groups
+      // collection (filtered by open visibility for the directory, plus
+      // server-side "owned or member of" for mine) and merge results
+      // client-side.
+      if (!myGroupsUnsub_) {
+        myGroupsUnsub_ = onSnapshot(
+          query(collection(db, "groups"), limit(100)),
+          async (snap) => {
+            const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            // For each candidate, check membership.
+            const checks = await Promise.all(all.map(async (g) => {
+              try {
+                const m = await getDoc(doc(db, "groups", g.id, "members", state.auth.user.uid));
+                return m.exists() ? { ...g, myRole: m.data().role } : null;
+              } catch { return null; }
+            }));
+            state.data.myGroups = checks.filter(Boolean).sort((a, b) =>
+              (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0)
+            );
+            renderGroupsAll_();
+            if (state.ui.tab === "notes") renderNotes();
+          },
+          (err) => console.warn("groups sub", err)
+        );
+      }
+      if (!directoryUnsub_) {
+        directoryUnsub_ = onSnapshot(
+          query(collection(db, "groups"), where("visibility", "==", "open"), limit(60)),
+          (snap) => {
+            state.data.allGroups = snap.docs
+              .map((d) => ({ id: d.id, ...d.data() }))
+              .filter((g) => !state.data.myGroups.some((m) => m.id === g.id));
+            renderGroupsAll_();
+          },
+          (err) => console.warn("directory sub", err)
+        );
+      }
+    }
+
+    function renderGroupsAll_() {
+      renderGroupDirectory_();
+      renderGroupMine_();
+      renderGroupsEmpty_();
+    }
+
+    function renderGroupDirectory_() {
+      const grid = $("#groups-directory");
+      const list = state.data.allGroups;
+      grid.innerHTML = list.map(groupCardHTML_).join("");
+      grid.querySelectorAll("[data-join-group]").forEach((btn) =>
+        on(btn, "click", () => joinOpenGroup_(btn.dataset.joinGroup))
+      );
+      grid.querySelectorAll("[data-open-group]").forEach((btn) =>
+        on(btn, "click", () => openGroupDetail_(btn.dataset.openGroup))
+      );
+    }
+
+    function renderGroupMine_() {
+      const grid = $("#groups-mine");
+      const list = state.data.myGroups;
+      grid.innerHTML = list.length
+        ? list.map(groupCardHTML_).join("")
+        : `<p class="panel__empty" style="grid-column: 1/-1;">You haven't joined any groups yet.</p>`;
+      grid.querySelectorAll("[data-open-group]").forEach((btn) =>
+        on(btn, "click", () => openGroupDetail_(btn.dataset.openGroup))
+      );
+      grid.querySelectorAll("[data-leave-group]").forEach((btn) =>
+        on(btn, "click", () => leaveGroup_(btn.dataset.leaveGroup))
+      );
+    }
+
+    function renderGroupsEmpty_() {
+      const empty = $("#groups-empty");
+      empty.hidden = state.data.allGroups.length > 0 || state.data.myGroups.length > 0;
+    }
+
+    function groupCardHTML_(g) {
+      const isMine = state.data.myGroups.some((m) => m.id === g.id);
+      const tape = isMine ? "" : `<span class="group-card__tape" aria-hidden="true"></span>`;
+      const course = g.coverCourse ? `<span class="group-card__course">${escapeHTML(g.coverCourse)}</span>` : "";
+      const btn = isMine
+        ? `<button class="btn btn--ghost btn--sm group-card__join" data-open-group="${escapeHTML(g.id)}" type="button">Open</button>
+           <button class="btn btn--ghost btn--sm" data-leave-group="${escapeHTML(g.id)}" type="button" style="margin-top:0.25rem;">Leave</button>`
+        : `<button class="btn btn--primary btn--sm group-card__join" data-join-group="${escapeHTML(g.id)}" type="button">Join</button>`;
+      return `
+        <article class="group-card" data-open-group="${escapeHTML(g.id)}">
+          ${tape}
+          ${course}
+          <h3 class="group-card__title">${escapeHTML(g.name)}</h3>
+          <p class="group-card__meta">${g.memberCount || 1} member${(g.memberCount || 1) === 1 ? "" : "s"} · ${g.visibility}</p>
+          ${g.description ? `<p class="group-card__desc">${escapeHTML(g.description.slice(0, 110))}${g.description.length > 110 ? "…" : ""}</p>` : ""}
+          <div style="display:flex; flex-direction:column; gap:0.25rem; margin-top:auto;">
+            ${btn}
+            ${!isMine ? `<button class="btn btn--ghost btn--sm" data-open-group="${escapeHTML(g.id)}" type="button">Preview</button>` : ""}
+          </div>
+        </article>`;
+    }
+
+    async function joinOpenGroup_(gid) {
+      const user = auth.currentUser;
+      if (!user) { openAuthModal("login"); return; }
+      try {
+        await setDoc(doc(db, "groups", gid, "members", user.uid), {
+          role: "member", joinedAt: serverTimestamp(), invitedBy: null, notifyByEmail: true,
+        });
+        await updateDoc(doc(db, "groups", gid), { memberCount: increment(1) });
+        showToast("Joined.");
+        subscribeGroups_();
+      } catch (err) {
+        showToast("Couldn't join: " + err.message);
+      }
+    }
+
+    async function leaveGroup_(gid) {
+      const user = auth.currentUser;
+      if (!user) return;
+      try {
+        await deleteDoc(doc(db, "groups", gid, "members", user.uid));
+        await updateDoc(doc(db, "groups", gid), { memberCount: increment(-1) });
+        state.data.sessionsByGroup.delete(gid);
+        showToast("Left the group.");
+        subscribeGroups_();
+      } catch (err) {
+        showToast("Couldn't leave: " + err.message);
+      }
+    }
+
+    on($("#create-group-btn"), "click", () => openModal(groupModal));
+    $$("[data-close-group]").forEach((el) => on(el, "click", () => closeModal(groupModal)));
+    on($("#group-form"), "submit", async (e) => {
+      e.preventDefault();
+      const user = auth.currentUser;
+      if (!user) return;
+      const fd = new FormData(groupForm);
+      const name = fd.get("name").toString().trim();
+      const coverCourse = fd.get("coverCourse").toString().trim();
+      const description = fd.get("description").toString().trim();
+      const visibility = fd.get("visibility");
+      if (!name) { showToast("Name the group."); return; }
+      try {
+        const ref = await addDoc(collection(db, "groups"), {
+          name, description, coverCourse,
+          visibility,
+          ownerUid: user.uid,
+          memberCount: 1,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          inviteCodes: [],
+        });
+        await setDoc(doc(db, "groups", ref.id, "members", user.uid), {
+          role: "owner", joinedAt: serverTimestamp(), invitedBy: null, notifyByEmail: true,
+        });
+        showToast("Group created.");
+        groupForm.reset();
+        closeModal(groupModal);
+        subscribeGroups_();
+        openGroupDetail_(ref.id);
+      } catch (err) {
+        $("#group-error").textContent = err.message;
+        $("#group-error").hidden = false;
+      }
     });
+
+    // Group detail sub-view
+    async function openGroupDetail_(gid) {
+      const g = state.data.myGroups.find((x) => x.id === gid)
+        || state.data.allGroups.find((x) => x.id === gid);
+      if (!g) { showToast("Group not found."); return; }
+      state.ui.groupFilter = gid;
+      const members = await getDocs(collection(db, "groups", gid, "members")).catch(() => null);
+      const memberRows = members ? members.docs.map((d) => ({ uid: d.id, ...d.data() })) : [];
+      const isOwner = state.auth.user && g.ownerUid === state.auth.user.uid;
+      const invites = (g.inviteCodes || []).filter((c) =>
+        (c.maxUses == null || (c.usedCount || 0) < c.maxUses) &&
+        (!c.expiresAt || (c.expiresAt && c.expiresAt.seconds * 1000 > Date.now()))
+      );
+      const inviteBlock = (g.visibility === "private" && isOwner)
+        ? `<div>
+             <button class="btn btn--ghost btn--sm" id="gen-invite-btn" type="button">Generate new invite code</button>
+             ${invites.length
+               ? invites.map((c) => `<div class="invite-row"><span class="invite-row__code">${escapeHTML(c.code)}</span> · ${c.usedCount || 0}${c.maxUses != null ? `/${c.maxUses}` : ""} uses</div>`).join("")
+               : `<p class="panel__sub" style="margin-top:0.5rem;">No active invite codes.</p>`}
+           </div>`
+        : "";
+
+      $("#groups-detail").innerHTML = `
+        <div class="group-detail">
+          <div class="group-detail__head">
+            <h3 class="group-detail__title">${escapeHTML(g.name)}</h3>
+            <button class="group-detail__back" id="group-back" type="button">← All groups</button>
+          </div>
+          ${g.coverCourse ? `<span class="group-card__course">${escapeHTML(g.coverCourse)}</span>` : ""}
+          <span class="group-card__meta" style="margin-left:0.5rem;">${g.visibility}</span>
+          ${g.description ? `<p class="group-card__desc">${escapeHTML(g.description)}</p>` : ""}
+          <p class="panel__sub" style="margin-top:0.5rem;">${memberRows.length} member${memberRows.length === 1 ? "" : "s"}</p>
+          <div class="group-members">
+            ${memberRows.slice(0, 20).map((m) => avatarHTML({ name: m.role, email: "" })).join("")}
+          </div>
+          <div style="display:flex; gap:0.5rem; margin-top:0.75rem; flex-wrap:wrap;">
+            <button class="btn btn--primary btn--sm" id="schedule-session-btn" type="button">Schedule session</button>
+            ${g.visibility === "private" && !isMine ? `<button class="btn btn--ghost btn--sm" id="show-invite-modal" type="button">Enter invite code</button>` : ""}
+          </div>
+          ${inviteBlock}
+        </div>
+      `;
+      on($("#group-back"), "click", () => { state.ui.groupFilter = null; $("#groups-detail").innerHTML = ""; });
+      const ssb = $("#schedule-session-btn");
+      if (ssb) on(ssb, "click", () => openSessionModal_(gid));
+      const gib = $("#gen-invite-btn");
+      if (gib) on(gib, "click", () => generateInviteCode_(gid));
+      const sim = $("#show-invite-modal");
+      if (sim) on(sim, "click", () => openModal(inviteModal));
+    }
+
+    async function generateInviteCode_(gid) {
+      const code = randomCode();
+      try {
+        await updateDoc(doc(db, "groups", gid), {
+          inviteCodes: arrayUnion({ code, createdBy: state.auth.user.uid, createdAt: Date.now(), usedCount: 0, maxUses: null, expiresAt: null }),
+          updatedAt: serverTimestamp(),
+        });
+        showToast(`Code: ${code}`);
+        openGroupDetail_(gid);
+      } catch (err) {
+        showToast("Couldn't generate: " + err.message);
+      }
+    }
+
+    on($("#invite-form"), "submit", async (e) => {
+      e.preventDefault();
+      const user = auth.currentUser;
+      if (!user) return;
+      const code = $("#invite-code").value.trim().toUpperCase();
+      if (!code) return;
+      try {
+        // Find a group whose inviteCodes contains this code
+        const snap = await getDocs(query(collection(db, "groups"), limit(100)));
+        const match = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .find((g) => Array.isArray(g.inviteCodes) && g.inviteCodes.some((c) => c.code === code));
+        if (!match) {
+          $("#invite-error").textContent = "No group found for that code.";
+          $("#invite-error").hidden = false;
+          return;
+        }
+        const ic = match.inviteCodes.find((c) => c.code === code);
+        if (ic.maxUses != null && (ic.usedCount || 0) >= ic.maxUses) {
+          $("#invite-error").textContent = "That invite code has reached its use limit.";
+          $("#invite-error").hidden = false;
+          return;
+        }
+        await setDoc(doc(db, "groups", match.id, "members", user.uid), {
+          role: "member", joinedAt: serverTimestamp(), invitedBy: ic.createdBy || null, notifyByEmail: true,
+        });
+        // Bump usedCount
+        const updated = match.inviteCodes.map((c) => c.code === code ? { ...c, usedCount: (c.usedCount || 0) + 1 } : c);
+        await updateDoc(doc(db, "groups", match.id), { inviteCodes: updated, memberCount: increment(1) });
+        showToast("Joined.");
+        inviteForm.reset();
+        closeModal(inviteModal);
+        subscribeGroups_();
+        setActiveTab("groups");
+        openGroupDetail_(match.id);
+      } catch (err) {
+        $("#invite-error").textContent = err.message;
+        $("#invite-error").hidden = false;
+      }
+    });
+    $$("[data-close-invite]").forEach((el) => on(el, "click", () => closeModal(inviteModal)));
+
+    // -------------------------------------------------------------------
+    // Sessions
+    // -------------------------------------------------------------------
+    let allSessionsUnsub_ = null;
+    function subscribeAllSessions_() {
+      if (allSessionsUnsub_) return;
+      if (!state.auth.user) return;
+      // For each group, subscribe to its sessions subcollection
+      state.data.sessionsByGroup.clear();
+      const wireGroup = (gid) => {
+        return onSnapshot(
+          query(collection(db, "groups", gid, "sessions"), orderBy("startsAt", "asc")),
+          async (snap) => {
+            const rows = await Promise.all(snap.docs.map(async (d) => {
+              const data = d.data();
+              const id = d.id;
+              // fetch attendee count from top-level session doc
+              let attendeeCount = data.attendeeCount || 0;
+              try {
+                const att = await getDoc(doc(db, "sessions", id, "attendees", state.auth.user.uid));
+                if (att.exists()) attendeeCount = Math.max(attendeeCount, 1); // self marker
+              } catch {}
+              return { id, gid, ...data, attendeeCount };
+            }));
+            state.data.sessionsByGroup.set(gid, rows);
+            renderSessions_();
+          },
+          (err) => console.warn("sessions sub", err)
+        );
+      };
+      // simpler: subscribe to groups I'm in and wire a sub on each
+      const watch = setInterval(() => {
+        state.data.sessionsByGroup.forEach((_, gid) => wireGroup(gid));
+        clearInterval(watch);
+      }, 0);
+      allSessionsUnsub_ = () => { clearInterval(watch); state.data.sessionsByGroup.forEach((rows) => rows._unsub && rows._unsub()); };
+      // Also re-wire whenever groups change
+      const rewire = () => {
+        const needed = new Set(state.data.myGroups.map((g) => g.id));
+        // unwire extras
+        for (const gid of Array.from(state.data.sessionsByGroup.keys())) {
+          if (!needed.has(gid)) {
+            state.data.sessionsByGroup.delete(gid);
+          }
+        }
+        needed.forEach((gid) => { if (!state.data.sessionsByGroup.has(gid)) wireGroup(gid); });
+      };
+      // expose rewire hook
+      state.data._rewireSessions = rewire;
+    }
+
+    function renderSessions_() {
+      const list = $("#sessions-list");
+      const empty = $("#sessions-empty");
+      const filter = state.ui.sessionFilter; // "upcoming" | "past"
+      const now = Date.now();
+      const allRows = [];
+      state.data.sessionsByGroup.forEach((rows, gid) => {
+        const g = state.data.myGroups.find((x) => x.id === gid);
+        rows.forEach((r) => allRows.push({ ...r, groupName: g ? g.name : "(unknown group)" }));
+      });
+      const filtered = allRows.filter((r) => {
+        const t = r.startsAt ? (r.startsAt.seconds ? r.startsAt.seconds * 1000 : Date.parse(r.startsAt)) : 0;
+        return filter === "upcoming" ? t >= now - 60 * 60 * 1000 : t < now;
+      });
+      filtered.sort((a, b) => {
+        const ta = a.startsAt?.seconds || 0;
+        const tb = b.startsAt?.seconds || 0;
+        return filter === "upcoming" ? ta - tb : tb - ta;
+      });
+
+      if (filtered.length === 0) {
+        list.innerHTML = "";
+        empty.hidden = false;
+        return;
+      }
+      empty.hidden = true;
+      list.innerHTML = filtered.map(sessionCardHTML_).join("");
+      list.querySelectorAll("[data-rsvp]").forEach((btn) =>
+        on(btn, "click", () => respondToSession_(btn.dataset.session, btn.dataset.rsvp))
+      );
+      list.querySelectorAll("[data-mark-attend]").forEach((btn) =>
+        on(btn, "click", () => markAttendance_(btn.dataset.markAttend))
+      );
+      list.querySelectorAll("[data-sess-detail]").forEach((btn) =>
+        on(btn, "click", () => sessionDetail_(btn.dataset.sessDetail))
+      );
+    }
+
+    function sessionCardHTML_(r) {
+      const chip = fmtDateChip(r.startsAt);
+      const counts = r.responseCounts || { yes: 0, maybe: 0, no: 0 };
+      const rid = r.id;
+      const gid = r.gid;
+      return `
+        <article class="session-card">
+          <div class="session-card__date">${escapeHTML(chip.month)}<br><span style="font-size:1.25rem;">${chip.day}</span></div>
+          <div>
+            <h3 class="session-card__title">${escapeHTML(r.title)}</h3>
+            <p class="session-card__meta">${escapeHTML(r.groupName)} · ${fmtDateTime(r.startsAt)}${r.location ? ` · <em>${escapeHTML(r.location)}</em>` : ""}</p>
+            ${r.description ? `<p class="group-card__desc" style="margin-top:0.25rem;">${escapeHTML(r.description)}</p>` : ""}
+          </div>
+          <div class="session-card__actions">
+            <div class="session-card__responses">
+              <button class="rsvp ${counts.yes ? "rsvp--yes" : ""}" data-rsvp="yes"   data-session="${escapeHTML(rid)}" type="button" title="Going">✓ ${counts.yes || 0}</button>
+              <button class="rsvp ${counts.maybe ? "rsvp--maybe" : ""}" data-rsvp="maybe" data-session="${escapeHTML(rid)}" type="button" title="Maybe">? ${counts.maybe || 0}</button>
+              <button class="rsvp ${counts.no ? "rsvp--no" : ""}" data-rsvp="no"    data-session="${escapeHTML(rid)}" type="button" title="Decline">✗ ${counts.no || 0}</button>
+            </div>
+            <button class="btn btn--ghost btn--sm" data-mark-attend="${escapeHTML(rid)}" type="button">I was there</button>
+            <button class="btn btn--ghost btn--sm" data-sess-detail="${escapeHTML(rid)}" type="button">Detail</button>
+          </div>
+        </article>`;
+    }
+
+    async function respondToSession_(sid, status) {
+      const user = auth.currentUser;
+      if (!user) { openAuthModal("login"); return; }
+      try {
+        const ref = doc(db, "sessions", sid, "responses", user.uid);
+        const existing = await getDoc(ref);
+        if (existing.exists()) {
+          const prev = existing.data().status;
+          if (prev === status) {
+            // Toggle off
+            await deleteDoc(ref);
+            await updateDoc(doc(db, "groups", (state.data.sessionsByGroup && findGroupIdForSession(sid)) || "_", "sessions", sid), {
+              [`responseCounts.${prev}`]: increment(-1),
+            });
+          } else {
+            await setDoc(ref, { status, respondedAt: serverTimestamp() });
+            await updateDoc(doc(db, "groups", findGroupIdForSession(sid), "sessions", sid), {
+              [`responseCounts.${prev}`]: increment(-1),
+              [`responseCounts.${status}`]: increment(1),
+            });
+          }
+        } else {
+          await setDoc(ref, { status, respondedAt: serverTimestamp() });
+          await updateDoc(doc(db, "groups", findGroupIdForSession(sid), "sessions", sid), {
+            [`responseCounts.${status}`]: increment(1),
+          });
+        }
+      } catch (err) {
+        showToast("Couldn't RSVP: " + err.message);
+      }
+    }
+
+    function findGroupIdForSession(sid) {
+      for (const [gid, rows] of state.data.sessionsByGroup) {
+        if (rows.some((r) => r.id === sid)) return gid;
+      }
+      return null;
+    }
+
+    async function markAttendance_(sid) {
+      const user = auth.currentUser;
+      if (!user) { openAuthModal("login"); return; }
+      try {
+        const ref = doc(db, "sessions", sid, "attendees", user.uid);
+        const existing = await getDoc(ref);
+        if (existing.exists()) {
+          await deleteDoc(ref);
+          await updateDoc(doc(db, "groups", findGroupIdForSession(sid), "sessions", sid), {
+            attendeeCount: increment(-1),
+          });
+          showToast("Attendance removed.");
+        } else {
+          await setDoc(ref, { markedAt: serverTimestamp(), markedBy: "self", note: "" });
+          await updateDoc(doc(db, "groups", findGroupIdForSession(sid), "sessions", sid), {
+            attendeeCount: increment(1),
+          });
+          showToast("Marked as attended.");
+        }
+      } catch (err) {
+        showToast("Couldn't mark: " + err.message);
+      }
+    }
+
+    function openSessionModal_(gid) {
+      sessionForm.reset();
+      sessionForm.dataset.gid = gid;
+      openModal(sessionModal);
+      setTimeout(() => $("#session-name").focus(), 50);
+    }
+    $$("[data-close-session]").forEach((el) => on(el, "click", () => closeModal(sessionModal)));
+    on($("#session-form"), "submit", async (e) => {
+      e.preventDefault();
+      const user = auth.currentUser;
+      if (!user) return;
+      const gid = sessionForm.dataset.gid;
+      const fd = new FormData(sessionForm);
+      const title = fd.get("title").toString().trim();
+      const startsAtRaw = fd.get("startsAt").toString();
+      const endsAtRaw   = fd.get("endsAt").toString();
+      const location    = fd.get("location").toString().trim();
+      const description = fd.get("description").toString().trim();
+      if (!title || !startsAtRaw) { showToast("Title and start time are required."); return; }
+      try {
+        const startsAt = new Date(startsAtRaw);
+        const endsAt   = endsAtRaw ? new Date(endsAtRaw) : null;
+        const group = state.data.myGroups.find((g) => g.id === gid);
+        const ref = await addDoc(collection(db, "groups", gid, "sessions"), {
+          title, description, location,
+          startsAt: startsAt.toISOString().slice(0, 10) + "T" + startsAt.toTimeString().slice(0, 5), // store as ISO-like string
+          endsAt: endsAt ? endsAt.toISOString().slice(0, 10) + "T" + endsAt.toTimeString().slice(0, 5) : null,
+          createdBy: user.uid,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          attendeeCount: 0,
+          responseCounts: { yes: 0, maybe: 0, no: 0 },
+        });
+        showToast("Session scheduled.");
+        sessionForm.reset();
+        closeModal(sessionModal);
+
+        // Notify group members + email opted-in
+        if (group) {
+          const memberRows = await getDocs(collection(db, "groups", gid, "members")).catch(() => null);
+          if (memberRows) {
+            const senderName = (state.data.myProfile && state.data.myProfile.displayName) || user.email;
+            const myUid = user.uid;
+            const tasks = [];
+            memberRows.docs.forEach((md) => {
+              const m = md.data();
+              if (md.id === myUid) return;
+              tasks.push(writeNotification_({
+                uid: md.id,
+                type: "session_created",
+                groupId: gid, sessionId: ref.id,
+                actorUid: myUid,
+                message: `${senderName} scheduled “${title}” in ${group.name}`,
+              }));
+              if (m.notifyByEmail !== false && m.email) {
+                tasks.push(postToBridge({
+                  action: "sendEmail",
+                  to: m.email,
+                  memberUid: md.id,
+                  groupId: gid,
+                  senderUid: myUid,
+                  subject: `[NoteHub] ${group.name}: ${title}`,
+                  htmlBody: renderSessionEmailHTML_({ title, startsAt, endsAt, location, description, group, creator: senderName }),
+                }).catch(() => null));
+              }
+            });
+            await Promise.all(tasks);
+          }
+        }
+      } catch (err) {
+        $("#session-error").textContent = err.message;
+        $("#session-error").hidden = false;
+      }
+    });
+
+    function renderSessionEmailHTML_({ title, startsAt, endsAt, location, description, group, creator }) {
+      return `
+        <p>Hi — <strong>${escapeHTML(creator)}</strong> just scheduled a study session in <strong>${escapeHTML(group.name)}</strong> on NoteHub.</p>
+        <h3>${escapeHTML(title)}</h3>
+        <p><strong>When:</strong> ${escapeHTML(startsAt.toLocaleString())}${endsAt ? ` – ${escapeHTML(endsAt.toLocaleString())}` : ""}</p>
+        ${location ? `<p><strong>Where:</strong> ${escapeHTML(location)}</p>` : ""}
+        ${description ? `<blockquote>${escapeHTML(description)}</blockquote>` : ""}
+        <p style="margin-top:1rem; font-size:0.875rem; color:#777;">Open NoteHub to RSVP.</p>
+      `;
+    }
+
+    function sessionDetail_(sid) {
+      const groups = state.data.sessionsByGroup;
+      let row = null, gid = null;
+      for (const [g, rows] of groups) {
+        const r = rows.find((x) => x.id === sid);
+        if (r) { row = r; gid = g; break; }
+      }
+      if (!row) return;
+      const g = state.data.myGroups.find((x) => x.id === gid);
+      showToast(`${row.title} — ${fmtDateTime(row.startsAt)}${g ? ` (${g.name})` : ""}`, 5000);
+    }
+
+    $$("#session-filter .session-filter__btn").forEach((btn) => on(btn, "click", () => {
+      state.ui.sessionFilter = btn.dataset.filter;
+      $$("#session-filter .session-filter__btn").forEach((b) => b.classList.toggle("session-filter__btn--active", b === btn));
+      renderSessions_();
+    }));
+
+    // -------------------------------------------------------------------
+    // Notifications
+    // -------------------------------------------------------------------
+    let notifsUnsubscribe_ = null;
+    function subscribeNotifs_() {
+      const user = auth.currentUser;
+      if (!user) return;
+      if (notifsUnsubscribe_) return;
+      notifsUnsubscribe_ = onSnapshot(
+        query(collection(db, "notifications"), where("uid", "==", user.uid), orderBy("createdAt", "desc"), limit(100)),
+        (snap) => {
+          state.data.myNotifs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          renderNotifs_();
+          updateBellBadge_();
+        },
+        (err) => console.warn("notifs sub", err)
+      );
+    }
+
+    function updateBellBadge_() {
+      const unread = state.data.myNotifs.filter((n) => !n.read).length;
+      if (!notifCountBadge) return;
+      notifCountBadge.textContent = String(unread || 0);
+      notifCountBadge.hidden = unread === 0;
+    }
+
+    function renderNotifs_() {
+      const list = $("#notifs-list");
+      const empty = $("#notifs-empty");
+      if (!state.data.myNotifs.length) {
+        list.innerHTML = "";
+        empty.hidden = false;
+        return;
+      }
+      empty.hidden = true;
+      list.innerHTML = state.data.myNotifs.map((n) => `
+        <div class="notif-row ${n.read ? "" : "notif-row--unread"}" data-notif="${escapeHTML(n.id)}" role="button" tabindex="0">
+          <span></span>
+          <span class="notif-row__msg">${escapeHTML(n.message || "")}</span>
+          <span class="notif-row__when">${timeAgo(n.createdAt)}</span>
+        </div>`).join("");
+      list.querySelectorAll("[data-notif]").forEach((row) => on(row, "click", () => onNotifClick_(row.dataset.notif)));
+    }
+
+    async function onNotifClick_(id) {
+      const n = state.data.myNotifs.find((x) => x.id === id);
+      if (!n) return;
+      try {
+        if (!n.read) await updateDoc(doc(db, "notifications", id), { read: true });
+        if (n.type === "session_created" && n.groupId) {
+          setActiveTab("sessions");
+        } else if (n.noteId) {
+          setActiveTab("notes");
+          openNoteDrawer(n.noteId);
+        }
+      } catch {}
+    }
+
+    on($("#notifs-mark-all"), "click", async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+      const unread = state.data.myNotifs.filter((n) => !n.read);
+      if (!unread.length) { showToast("All caught up."); return; }
+      await Promise.all(unread.map((n) => updateDoc(doc(db, "notifications", n.id), { read: true })));
+      showToast("Marked all read.");
+    });
+
+    async function writeNotification_({ uid, type, groupId, sessionId, noteId, actorUid, message }) {
+      if (!uid || uid === actorUid) return;
+      try {
+        await addDoc(collection(db, "notifications"), {
+          uid, type, groupId: groupId || null, sessionId: sessionId || null,
+          noteId: noteId || null, actorUid: actorUid || null,
+          message, read: false, createdAt: serverTimestamp(),
+        });
+      } catch (err) {
+        console.warn("notification failed", err.message);
+      }
+    }
+
+    // -------------------------------------------------------------------
+    // User profile bootstrap
+    // -------------------------------------------------------------------
+    async function ensureUserDoc_(user) {
+      try {
+        const ref = doc(db, "users", user.uid);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) {
+          await setDoc(ref, {
+            displayName: user.displayName || (user.email || "").split("@")[0] || "Anonymous",
+            initials: initialOf(user.displayName || user.email),
+            gravatarEmail: user.email || "",
+            bio: "",
+            email: user.email || "",
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            emailPrefs: { globalOptOut: false, perGroup: {} },
+          });
+        }
+        const fresh = await getDoc(ref);
+        state.data.myProfile = fresh.data();
+      } catch (err) {
+        console.warn("user doc", err.message);
+      }
+    }
+
+    // -------------------------------------------------------------------
+    // Escape key handler
+    // -------------------------------------------------------------------
+    on(document, "keydown", (e) => {
+      if (e.key !== "Escape") return;
+      if (!uploadModal.hidden)   closeModal(uploadModal);
+      if (!authModal.hidden)     closeModal(authModal);
+      if (!profileModal.hidden)  closeModal(profileModal);
+      if (!groupModal.hidden)    closeModal(groupModal);
+      if (!sessionModal.hidden)  closeModal(sessionModal);
+      if (!inviteModal.hidden)   closeModal(inviteModal);
+      if (!noteDrawer.hidden)    closeNoteDrawer_();
+    });
+
+    // -------------------------------------------------------------------
+    // Boot
+    // -------------------------------------------------------------------
+    onAuthStateChanged(auth, async (user) => {
+      renderAuthSlot(user);
+      if (user) {
+        await ensureUserDoc_(user);
+        subscribeGroups_();
+        if (state.prefs.lastTab === "sessions") subscribeAllSessions_();
+        if (state.prefs.lastTab === "notifs")   subscribeNotifs_();
+      } else {
+        state.data.myGroups = [];
+        state.data.myNotifs = [];
+        renderGroupsAll_();
+        updateBellBadge_();
+      }
+      renderNotes();
+    });
+
+    subscribeNotes_();
+    setActiveTab(state.prefs.lastTab || "notes");
   </script>
 
   <!--
@@ -687,12 +2002,103 @@
   rules_version = '2';
   service cloud.firestore {
     match /databases/{database}/documents {
-      match /notes/{noteId} {
+      // --- helpers ---------------------------------------------------
+      function isSignedIn() { return request.auth != null; }
+      function isSelf(uid)  { return isSignedIn() && request.auth.uid == uid; }
+      function isMember(gid) {
+        return isSignedIn()
+          && exists(/databases/$(database)/documents/groups/$(gid)/members/$(request.auth.uid));
+      }
+      // Bound to 10 groupIds per note (validated at create-time in the app).
+      function memberOfAny(ids) {
+        return ids.size() > 0
+          && (isMember(ids[0])
+            || (ids.size() > 1 && isMember(ids[1]))
+            || (ids.size() > 2 && isMember(ids[2]))
+            || (ids.size() > 3 && isMember(ids[3]))
+            || (ids.size() > 4 && isMember(ids[4]))
+            || (ids.size() > 5 && isMember(ids[5]))
+            || (ids.size() > 6 && isMember(ids[6]))
+            || (ids.size() > 7 && isMember(ids[7]))
+            || (ids.size() > 8 && isMember(ids[8]))
+            || (ids.size() > 9 && isMember(ids[9])));
+      }
+
+      // --- users -----------------------------------------------------
+      match /users/{uid} {
         allow read: if true;
-        allow create, update: if request.auth != null
-          && request.auth.uid == request.resource.data.uploadedBy;
-        allow delete: if request.auth != null
-          && request.auth.uid == resource.data.uploadedBy;
+        allow create, update: if isSelf(uid);
+        allow delete: if false;
+      }
+
+      // --- notes (with comments + reactions subcollections) ----------
+      match /notes/{noteId} {
+        allow read: if resource.data.visibility != 'groups' || memberOfAny(resource.data.groupIds);
+        allow create: if isSignedIn()
+          && request.resource.data.uploadedBy == request.auth.uid
+          && request.resource.data.visibility in ['public', 'groups']
+          && request.resource.data.groupIds.size() <= 10
+          && (request.resource.data.visibility == 'public'
+              || memberOfAny(request.resource.data.groupIds));
+        allow update, delete: if isSignedIn() && resource.data.uploadedBy == request.auth.uid;
+
+        match /comments/{commentId} {
+          allow read: if true;
+          allow create: if isSignedIn()
+            && request.resource.data.authorUid == request.auth.uid
+            && (get(/databases/$(database)/documents/notes/$(noteId)).data.visibility != 'groups'
+                || memberOfAny(get(/databases/$(database)/documents/notes/$(noteId)).data.groupIds));
+          allow update, delete: if isSignedIn() && resource.data.authorUid == request.auth.uid;
+        }
+        match /reactions/{uid} {
+          allow read: if true;
+          allow write: if isSelf(uid);
+        }
+      }
+
+      // --- groups (with members + sessions subcollections) -----------
+      match /groups/{gid} {
+        allow read: if resource.data.visibility == 'open' || isMember(gid);
+        allow create: if isSignedIn() && request.resource.data.ownerUid == request.auth.uid;
+        allow update: if isMember(gid)
+          && get(/databases/$(database)/documents/groups/$(gid)).data.ownerUid == request.auth.uid;
+        allow delete: if isSignedIn()
+          && get(/databases/$(database)/documents/groups/$(gid)).data.ownerUid == request.auth.uid;
+
+        match /members/{uid} {
+          allow read: if isMember(gid) || isSelf(uid);
+          allow create: if isSelf(uid); // self-join open OR redeem invite
+          allow update: if isSelf(uid)
+            || (isMember(gid) && get(/databases/$(database)/documents/groups/$(gid)).data.ownerUid == request.auth.uid);
+          allow delete: if isSelf(uid)
+            || (isMember(gid) && get(/databases/$(database)/documents/groups/$(gid)).data.ownerUid == request.auth.uid);
+        }
+        match /sessions/{sid} {
+          allow read: if isMember(gid);
+          allow create: if isMember(gid);
+          allow update, delete: if isMember(gid)
+            && (resource.data.createdBy == request.auth.uid
+                || get(/databases/$(database)/documents/groups/$(gid)).data.ownerUid == request.auth.uid);
+        }
+      }
+
+      // --- sessions (attendees + responses subcollections) -----------
+      match /sessions/{sid} {
+        allow read: if true;
+        match /attendees/{uid} {
+          allow read: if true;
+          allow write: if isSelf(uid);
+        }
+        match /responses/{uid} {
+          allow read: if true;
+          allow write: if isSelf(uid);
+        }
+      }
+
+      // --- notifications (client can only write to itself) ------------
+      match /notifications/{id} {
+        allow read, update, delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+        allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
       }
     }
   }

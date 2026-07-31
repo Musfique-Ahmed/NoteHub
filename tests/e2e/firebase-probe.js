@@ -22,6 +22,93 @@ export function readFirebaseConfig() {
 }
 
 /**
+ * Probes the deployed Firestore rules by signing in as a temporary user
+ * and attempting to read the top-level groups collection. Returns:
+ *   { ok: true }                   — rules allow authenticated reads on /groups
+ *   { ok: false, reason }          — permission denied (rules not deployed,
+ *                                     or only the legacy default rules)
+ *
+ * Specs that create or query groups/sessions/notifs should call this and
+ * `test.skip()` when ok=false. Without deployed rules, those specs will
+ * fail with "Missing or insufficient permissions" on every Firestore call.
+ */
+export async function probeFirestoreRules() {
+  const { apiKey } = readFirebaseConfig();
+  if (!apiKey || apiKey.startsWith('YOUR_')) {
+    return { ok: false, reason: 'Firebase apiKey missing' };
+  }
+  // Register a throwaway probe user (it'll linger but can't be logged into).
+  const probeEmail = `firestore_probe_${Date.now()}_${Math.random().toString(36).slice(2, 6)}@example.com`;
+  let idToken = null;
+  try {
+    const signup = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: probeEmail, password: 'ProbePass123!', returnSecureToken: true }),
+    });
+    const signupBody = await signup.json().catch(() => ({}));
+    if (!signup.ok || !signupBody.idToken) {
+      return { ok: false, reason: `signup failed: ${signupBody?.error?.message || 'unknown'}` };
+    }
+    idToken = signupBody.idToken;
+  } catch (err) {
+    return { ok: false, reason: `signup network error: ${err.message}` };
+  }
+  // Attempt a list of /groups (limit 1). If this returns 200 OR 404 with
+  // an empty body, rules allow read; if it's 403, rules don't.
+  const projectId = (readFirebaseConfig().html || '').match(/projectId:\s*"([^"]+)"/)?.[1];
+  if (!projectId) return { ok: false, reason: 'projectId missing in firebase-config.js' };
+  try {
+    const res = await fetch(
+      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/groups?pageSize=1`,
+      { headers: { Authorization: `Bearer ${idToken}` } }
+    );
+    if (res.status === 200) return { ok: true };
+    if (res.status === 403) {
+      const body = await res.json().catch(() => ({}));
+      return { ok: false, reason: `Firestore denied: ${body?.error?.message || 'rules not deployed'}` };
+    }
+    return { ok: false, reason: `Firestore rules probe HTTP ${res.status}` };
+  } catch (err) {
+    return { ok: false, reason: `Firestore rules probe network error: ${err.message}` };
+  }
+}
+
+/**
+ * Probes the deployed Apps Script Web App (Drive bridge) to verify it
+ * responds to a GET ping. Returns:
+ *   { ok: true, version }        — bridge reachable, returns version
+ *   { ok: false, reason }        — bridge unreachable, missing config, etc.
+ *
+ * Specs that depend on a live bridge (e.g. sendEmail assertions in
+ * sessions.spec.js) should `test.skip()` when this returns ok=false.
+ */
+export async function probeBridge() {
+  const cfg = readFirebaseConfig();
+  // We can't read driveUploadUrl from the regex above; fall back to the
+  // NOTEHUB_CONFIG global injected via addInitScript in mockDriveBridge.
+  // Since this runs in the Node process, the only safe option is to read
+  // firebase-config.js source for a non-placeholder driveUploadUrl.
+  const src = cfg.html || '';
+  const m = src.match(/driveUploadUrl:\s*"([^"]+)"/);
+  const url = m?.[1];
+  if (!url || url.startsWith('PASTE_')) {
+    return { ok: false, reason: 'driveUploadUrl is a placeholder in firebase-config.js' };
+  }
+  try {
+    const res = await fetch(`${url}?action=ping`);
+    if (!res.ok) return { ok: false, reason: `HTTP ${res.status} from bridge` };
+    const body = await res.json().catch(() => ({}));
+    if (!body || body.ok !== true) {
+      return { ok: false, reason: 'bridge did not respond with ok:true' };
+    }
+    return { ok: true, version: body.version || null };
+  } catch (err) {
+    return { ok: false, reason: `bridge probe failed: ${err.message}` };
+  }
+}
+
+/**
  * Probes the Firebase Identity Toolkit signUp endpoint to detect whether
  * Email/Password is enabled for the configured project. Returns one of:
  *   { ok: true }                       — provider enabled

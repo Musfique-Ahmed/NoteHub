@@ -4,11 +4,16 @@ NoteHub is a collaborative web platform designed for students to effortlessly sh
 
 ## ✨ Features
 
-* **User Authentication:** Secure registration and login system for users to manage their accounts.
-* **Share Notes:** An intuitive modal allows authenticated users to upload their notes (PDF, DOCX, TXT) with details like title, creator name, and course.
+* **User Authentication:** Secure registration and login system for users to manage their accounts. Profile modal with display name, bio, and Gravatar avatar.
+* **Share Notes:** An intuitive modal allows authenticated users to upload their notes (PDF, DOCX, TXT) with details like title, creator name, and course. Per-note visibility: public, or shared with selected study groups.
 * **Real-time Database:** Built with Firebase Firestore, the platform updates in real-time as new notes are shared.
 * **Dynamic Search:** Instantly search and filter through all available notes by title, creator, or course name.
 * **Download Materials:** Download any note with a single click.
+* **Notes drawer:** Open any note to read its description, upvote it, and join the comment thread (one level of nesting).
+* **Study groups:** Open groups are discoverable in a directory and joined in one click; private groups are joined with an invite code that the owner generates. Group detail pages show members, sessions, and invite links.
+* **Study sessions:** Members of a group can schedule a session with title, description, start/end, and location. Everyone in the group gets a notification; RSVPs (yes / maybe / no) update response counts in real time. Past sessions support an "I was there" attendance toggle.
+* **Notifications:** In-app inbox with a bell badge in the sidebar. Click a notification to jump to the relevant session or note.
+* **Email digest (opt-in):** When a session is scheduled, members who haven't opted out of email get a notification through the Apps Script bridge. Daily per-group caps prevent runaway sends.
 * **Responsive Design:** A clean, modern, and fully responsive user interface built with a custom design system (vanilla CSS), ensuring a great experience on any device.
 
 ## 💻 Technology Stack (all free tier)
@@ -59,15 +64,16 @@ This is what lets the app store files in your Google Drive instead of Firebase S
 
 1. Open <https://script.google.com> and create a new project.
 2. Paste the entire contents of `drive-upload.gs` into `Code.gs`.
-3. **Deploy → New deployment → Web app**.
+3. **Project Settings → Script Properties** → add `BRIDGE_TOKEN` (any long random string). The same value goes into `firebase-config.js` → `bridgeToken`. If you skip this step, the bridge accepts any caller (dev mode).
+4. **Deploy → New deployment → Web app**.
    - Execute as: **Me** (your Google account)
    - Who has access: **Anyone**
-4. Copy the deployment URL (it looks like `https://script.google.com/macros/s/AKfy.../exec`).
-5. Paste it into `firebase-config.js` as `driveUploadUrl`.
+5. Copy the deployment URL (it looks like `https://script.google.com/macros/s/AKfy.../exec`).
+6. Paste it into `firebase-config.js` as `driveUploadUrl`.
 
-That's it. The bridge uploads each file to your Drive, makes it readable by anyone with the link, and returns the public download URL stored in Firestore.
+That's it. The bridge uploads each file to your Drive, makes it readable by anyone with the link, and returns the public download URL stored in Firestore. It also handles `sendEmail` actions for session notifications (gated by group membership and a daily per-group send cap).
 
-> ⚠️ The bridge URL is public — anyone on the internet can POST to it. `drive-upload.gs` enforces a 10 MB cap and an allowlist of MIME types (PDF, DOCX, TXT). If you need stronger protection, add a Firebase ID token check in the Apps Script.
+> ⚠️ The bridge URL is public — anyone on the internet can POST to it. `drive-upload.gs` enforces a 10 MB cap, an allowlist of MIME types (PDF, DOCX, TXT), per-IP rate limits, an optional `BRIDGE_TOKEN` shared secret, HTML sanitisation on email bodies, and a 5-email-per-group-per-day cap.
 
 ### 3. (Optional) Clean up old Firebase Storage references
 
@@ -92,4 +98,13 @@ npx playwright install chromium
 npx playwright test
 ```
 
-The tests register users, upload notes, exercise search, and verify that logged-out users can browse. The Drive upload bridge is intercepted by the test harness so the suite runs offline and doesn't pollute your Drive.
+Spec files cover: smoke (`smoke.spec.js`), auth (`auth.spec.js`), notes flow (`notes.spec.js`), note privacy (`notes-privacy.spec.js`), comments + reactions (`comments-reactions.spec.js`), groups (`groups.spec.js`), sessions (`sessions.spec.js`), notifications (`notifs.spec.js`), and profile (`profile.spec.js`).
+
+The tests register users, upload notes, exercise search, and verify that logged-out users can browse. The Drive upload bridge is intercepted by the test harness (`tests/e2e/helpers/bridge-mock.js`) so the suite runs offline and doesn't pollute your Drive.
+
+Two probes in `tests/e2e/firebase-probe.js` gate the suite against missing infrastructure:
+
+* `probeEmailPasswordProvider()` — confirms the Email/Password provider is enabled in your Firebase project.
+* `probeFirestoreRules()` — confirms the production rules from the bottom of `index.html` are deployed (without them, every Firestore call fails with `permission-denied`).
+
+Tests skip cleanly when either probe fails, so the suite is always green locally even before the one-time setup is done.

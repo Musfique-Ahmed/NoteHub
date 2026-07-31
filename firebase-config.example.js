@@ -8,6 +8,8 @@
 //   - Your Firebase web-app SDK config
 //       (Firebase Console → Project settings → Your apps → Web app → Config)
 //   - Your deployed drive-upload.gs Web App URL
+//   - Your BRIDGE_TOKEN (set in Apps Script → Project Settings →
+//     Script Properties; same string here and in the script)
 
 window.NOTEHUB_CONFIG = {
   firebase: {
@@ -20,5 +22,9 @@ window.NOTEHUB_CONFIG = {
     measurementId: "YOUR_MEASUREMENT_ID"
   },
 
-  driveUploadUrl: "PASTE_YOUR_APPS_SCRIPT_DEPLOYMENT_URL_HERE"
+  driveUploadUrl: "PASTE_YOUR_APPS_SCRIPT_DEPLOYMENT_URL_HERE",
+
+  // Shared secret with the Apps Script Web App. If unset in the script,
+  // the bridge accepts any caller (dev mode). Strongly recommended in prod.
+  bridgeToken: "YOUR_BRIDGE_TOKEN"
 };

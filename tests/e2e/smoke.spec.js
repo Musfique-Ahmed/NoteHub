@@ -52,4 +52,35 @@ test.describe('NoteHub — smoke', () => {
     expect(month?.trim().length).toBeGreaterThan(0);
     expect(weekday?.trim().length).toBeGreaterThan(0);
   });
+
+  test('tab strip mounts all four panels', async ({ page }) => {
+    await page.goto('/');
+    const tabs = page.locator('.margin__tab');
+    await expect(tabs).toHaveCount(4);
+    await expect(tabs.nth(0)).toHaveText(/notes/i);
+    await expect(tabs.nth(1)).toHaveText(/groups/i);
+    await expect(tabs.nth(2)).toHaveText(/sessions/i);
+    await expect(tabs.nth(3)).toHaveText(/notifications/i);
+
+    // Default tab is notes
+    await expect(page.locator('[data-panel="notes"]')).toBeVisible();
+    await expect(page.locator('[data-panel="groups"]')).toBeHidden();
+    await expect(page.locator('[data-panel="sessions"]')).toBeHidden();
+    await expect(page.locator('[data-panel="notifs"]')).toBeHidden();
+
+    // Switch to groups — sessions panel hides, groups panel shows
+    await tabs.nth(1).click();
+    await expect(page.locator('[data-panel="groups"]')).toBeVisible();
+    await expect(page.locator('[data-panel="sessions"]')).toBeHidden();
+    await expect(page.locator('[data-panel="notes"]')).toBeHidden();
+  });
+
+  test('groups panel renders for guests', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.margin__tab[data-tab="groups"]').click();
+    await expect(page.locator('[data-panel="groups"]')).toBeVisible();
+    // The directory regions must be attached
+    await expect(page.locator('#groups-mine')).toBeAttached();
+    await expect(page.locator('#groups-directory')).toBeAttached();
+  });
 });
